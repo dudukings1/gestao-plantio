@@ -6,6 +6,9 @@ import { HistoricoPage } from '@/pages/HistoricoPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { UsuariosPage } from '@/pages/UsuariosPage'
+import { SafrasPage } from '@/pages/SafrasPage'
+import { EstoquePage } from '@/pages/EstoquePage'
+import { EntradasPage } from '@/pages/EntradasPage'
 import { useAuth } from '@/store/AuthContext'
 
 function RequireAuth() {
@@ -21,6 +24,12 @@ function SomenteAdmin() {
   return <Outlet />
 }
 
+function RequerPermissao({ permissao }: { permissao: string }) {
+  const { pode } = useAuth()
+  if (!pode(permissao as Parameters<typeof pode>[0])) return <Navigate to="/lancar" replace />
+  return <Outlet />
+}
+
 export default function App() {
   return (
     <Routes>
@@ -28,14 +37,21 @@ export default function App() {
 
       <Route element={<RequireAuth />}>
         <Route element={<AppLayout />}>
-          {/* Rotas exclusivas do admin */}
+          {/* Exclusivo admin */}
           <Route element={<SomenteAdmin />}>
             <Route index element={<MapaPage />} />
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="usuarios" element={<UsuariosPage />} />
+            <Route path="safras" element={<SafrasPage />} />
+            <Route path="entradas" element={<EntradasPage />} />
           </Route>
 
-          {/* Rotas acessíveis por todos */}
+          {/* Estoque: admin + funcionário (verEstoque) */}
+          <Route element={<RequerPermissao permissao="verEstoque" />}>
+            <Route path="estoque" element={<EstoquePage />} />
+          </Route>
+
+          {/* Todos autenticados */}
           <Route path="lancar" element={<LancarDespesaPage />} />
           <Route path="historico" element={<HistoricoPage />} />
         </Route>

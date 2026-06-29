@@ -1,10 +1,8 @@
-/** Coordenada geográfica (latitude/longitude). */
 export interface LatLng {
   lat: number
   lng: number
 }
 
-/** Identificadores das categorias de despesa. */
 export type CategoriaId =
   | 'diesel'
   | 'adubo'
@@ -14,7 +12,15 @@ export type CategoriaId =
   | 'manutencao'
   | 'outros'
 
-/** Uma área de plantio (talhão) desenhada sobre o mapa. */
+export type AtividadeId =
+  | 'plantio'
+  | 'colheita'
+  | 'pulverizacao'
+  | 'adubacao'
+  | 'irrigacao'
+  | 'manutencao'
+  | 'outro'
+
 export interface Area {
   id: string
   nome: string
@@ -26,7 +32,6 @@ export interface Area {
   criadoEm: string
 }
 
-/** Um lançamento de despesa associado a uma área. */
 export interface Despesa {
   id: string
   areaId: string
@@ -35,14 +40,58 @@ export interface Despesa {
   data: string
   descricao?: string
   criadoEm: string
-  /** ID do usuário que registrou a despesa (opcional para compatibilidade com dados antigos). */
   lancadoPorId?: string
+  // Novas fields (opcionais para compatibilidade com dados antigos)
+  safraId?: string
+  tipoAtividade?: AtividadeId
+  tags?: string[]
+  insumoId?: string
+  quantidadeInsumo?: number
 }
 
-/** Roles disponíveis no sistema. */
+export interface Safra {
+  id: string
+  nome: string      // "Soja 24/25"
+  cultura: string
+  ativa: boolean
+  criadoEm: string
+}
+
+export interface Insumo {
+  id: string
+  nome: string
+  unidade: string   // "L", "kg", "sc", "un"
+  categoriaId?: CategoriaId
+  estoqueMinimo?: number
+  criadoEm: string
+}
+
+export interface MovimentacaoEstoque {
+  id: string
+  insumoId: string
+  tipo: 'entrada' | 'saida'
+  quantidade: number
+  despesaId?: string     // saída automática via despesa
+  observacao?: string
+  criadoEm: string
+}
+
+export interface Entrada {
+  id: string
+  areaId: string
+  safraId?: string
+  cultura: string
+  quantidade: number
+  unidade: 'sc' | 'ton'
+  precoUnitario: number
+  total: number
+  comprador?: string
+  data: string
+  criadoEm: string
+}
+
 export type Role = 'admin' | 'funcionario'
 
-/** Usuário do sistema. */
 export interface Usuario {
   id: string
   nome: string

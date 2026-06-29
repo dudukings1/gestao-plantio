@@ -1,6 +1,5 @@
 import type { Role } from './types'
 
-/** Gera hash SHA-256 de uma senha usando Web Crypto API (nativa do browser). */
 export async function hashSenha(senha: string): Promise<string> {
   const data = new TextEncoder().encode(senha)
   const hash = await crypto.subtle.digest('SHA-256', data)
@@ -13,23 +12,33 @@ export async function verificarSenha(senha: string, hash: string): Promise<boole
   return (await hashSenha(senha)) === hash
 }
 
-// ── Permissões ────────────────────────────────────────────────────────────────
-
 const definePermissoes = <T extends Record<string, boolean>>(p: T) => p
 
 export const PERMISSOES = {
   admin: definePermissoes({
+    // Mapa
     verMapa: true,
     criarArea: true,
     excluirArea: true,
+    // Despesas
     lancarDespesa: true,
     excluirDespesaPropria: true,
     excluirDespesaQualquer: true,
+    // Histórico / Dashboard
     verHistorico: true,
     verDashboard: true,
     exportarPDF: true,
     exportarCSV: true,
+    // Usuários
     gerenciarUsuarios: true,
+    // Safras
+    gerenciarSafras: true,
+    // Estoque
+    verEstoque: true,
+    gerenciarEstoque: true,
+    // Entradas (vendas)
+    verEntradas: true,
+    gerenciarEntradas: true,
   }),
   funcionario: definePermissoes({
     verMapa: false,
@@ -43,6 +52,11 @@ export const PERMISSOES = {
     exportarPDF: false,
     exportarCSV: false,
     gerenciarUsuarios: false,
+    gerenciarSafras: false,
+    verEstoque: true,
+    gerenciarEstoque: false,
+    verEntradas: false,
+    gerenciarEntradas: false,
   }),
 } satisfies Record<Role, Record<string, boolean>>
 
