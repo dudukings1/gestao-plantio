@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { useData } from '@/store/DataContext'
+import { useAuth } from '@/store/AuthContext'
 import { CATEGORIAS } from '@/lib/categories'
 import { formatCurrency } from '@/lib/utils'
 import type { CategoriaId } from '@/lib/types'
@@ -29,6 +30,7 @@ export function LancarDespesaPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { areas, adicionarDespesa } = useData()
+  const { usuario } = useAuth()
 
   const [areaId, setAreaId] = React.useState(
     () => searchParams.get('area') ?? areas[0]?.id ?? ''
@@ -74,6 +76,7 @@ export function LancarDespesaPage() {
         valor: Number.parseFloat(it.valor),
         data,
         descricao: it.descricao.trim() || undefined,
+        lancadoPorId: usuario?.id,
       })
     })
 

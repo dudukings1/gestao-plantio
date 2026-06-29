@@ -18,15 +18,10 @@ export type CategoriaId =
 export interface Area {
   id: string
   nome: string
-  /** Cor usada para o polígono no mapa (hex). */
   cor: string
-  /** Vértices do polígono que delimita a área. */
   poligono: LatLng[]
-  /** Área calculada a partir da geometria, em hectares. */
   hectares: number
-  /** Cultura plantada (opcional), ex.: "Soja", "Milho". */
   cultura?: string
-  /** Orçamento planejado para a área em reais (opcional). */
   orcamento?: number
   criadoEm: string
 }
@@ -36,10 +31,24 @@ export interface Despesa {
   id: string
   areaId: string
   categoria: CategoriaId
-  /** Valor em reais. */
   valor: number
-  /** Data da despesa no formato ISO (YYYY-MM-DD). */
   data: string
   descricao?: string
+  criadoEm: string
+  /** ID do usuário que registrou a despesa (opcional para compatibilidade com dados antigos). */
+  lancadoPorId?: string
+}
+
+/** Roles disponíveis no sistema. */
+export type Role = 'admin' | 'funcionario'
+
+/** Usuário do sistema. */
+export interface Usuario {
+  id: string
+  nome: string
+  login: string
+  senhaHash: string
+  role: Role
+  ativo: boolean
   criadoEm: string
 }

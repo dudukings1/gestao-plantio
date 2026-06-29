@@ -15,11 +15,13 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useData } from '@/store/DataContext'
+import { useAuth } from '@/store/AuthContext'
 import { CATEGORIAS, getCategoria } from '@/lib/categories'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
 export function HistoricoPage() {
   const { areas, despesas, removerDespesa } = useData()
+  const { usuario, usuarios, pode } = useAuth()
 
   const [areaId, setAreaId] = React.useState('')
   const [categoria, setCategoria] = React.useState('')
@@ -29,6 +31,14 @@ export function HistoricoPage() {
   const areaNome = React.useCallback(
     (id: string) => areas.find((a) => a.id === id)?.nome ?? '—',
     [areas]
+  )
+
+  const nomeUsuario = React.useCallback(
+    (id?: string) => {
+      if (!id) return '—'
+      return usuarios.find((u) => u.id === id)?.nome ?? '—'
+    },
+    [usuarios]
   )
 
   const filtradas = React.useMemo(() => {
@@ -42,23 +52,28 @@ export function HistoricoPage() {
 
   const total = filtradas.reduce((soma, d) => soma + d.valor, 0)
 
+  function podeExcluir(lancadoPorId?: string): boolean {
+    if (pode('excluirDespesaQualquer')) return true
+    if (pode('excluirDespesaPropria') && lancadoPorId === usuario?.id) return true
+    return false
+  }
+
   function exportarCsv() {
     const linhas = [
-      ['Data', 'Área', 'Categoria', 'Descrição', 'Valor'],
+      ['Data', 'Área', 'Categoria', 'Descrição', 'Lançado por', 'Valor'],
       ...filtradas.map((d) => [
         d.data,
         areaNome(d.areaId),
         getCategoria(d.categoria).nome,
         d.descricao ?? '',
+        nomeUsuario(d.lancadoPorId),
         d.valor.toFixed(2).replace('.', ','),
       ]),
     ]
     const csv = linhas
       .map((l) => l.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(';'))
       .join('\n')
-    const blob = new Blob(['﻿' + csv], {
-      type: 'text/csv;charset=utf-8;',
-    })
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -71,13 +86,11 @@ export function HistoricoPage() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">Histórico de despesas</h1>
-        <Button
-          variant="outline"
-          onClick={exportarCsv}
-          disabled={filtradas.length === 0}
-        >
-          <Download /> Exportar CSV
-        </Button>
+        {pode('exportarCSV') && (
+          <Button variant="outline" onClick={exportarCsv} disabled={filtradas.length === 0}>
+            <Download /> Exportar CSV
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -85,51 +98,29 @@ export function HistoricoPage() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <Label htmlFor="f-area">Área</Label>
-              <Select
-                id="f-area"
-                value={areaId}
-                onChange={(e) => setAreaId(e.target.value)}
-              >
+              <Select id="f-area" value={areaId} onChange={(e) => setAreaId(e.target.value)}>
                 <option value="">Todas</option>
                 {areas.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.nome}
-                  </option>
+                  <option key={a.id} value={a.id}>{a.nome}</option>
                 ))}
               </Select>
             </div>
             <div>
               <Label htmlFor="f-cat">Categoria</Label>
-              <Select
-                id="f-cat"
-                value={categoria}
-                onChange={(e) => setCategoria(e.target.value)}
-              >
+              <Select id="f-cat" value={categoria} onChange={(e) => setCategoria(e.target.value)}>
                 <option value="">Todas</option>
                 {CATEGORIAS.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nome}
-                  </option>
+                  <option key={c.id} value={c.id}>{c.nome}</option>
                 ))}
               </Select>
             </div>
             <div>
               <Label htmlFor="f-de">De</Label>
-              <Input
-                id="f-de"
-                type="date"
-                value={de}
-                onChange={(e) => setDe(e.target.value)}
-              />
+              <Input id="f-de" type="date" value={de} onChange={(e) => setDe(e.target.value)} />
             </div>
             <div>
               <Label htmlFor="f-ate">Até</Label>
-              <Input
-                id="f-ate"
-                type="date"
-                value={ate}
-                onChange={(e) => setAte(e.target.value)}
-              />
+              <Input id="f-ate" type="date" value={ate} onChange={(e) => setAte(e.target.value)} />
             </div>
           </div>
         </CardContent>
@@ -149,6 +140,7 @@ export function HistoricoPage() {
                   <TableHead>Área</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead>Descrição</TableHead>
+                  <TableHead>Lançado por</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
@@ -156,38 +148,32 @@ export function HistoricoPage() {
               <TableBody>
                 {filtradas.map((d) => {
                   const cat = getCategoria(d.categoria)
+                  const podeDel = podeExcluir(d.lancadoPorId)
                   return (
                     <TableRow key={d.id}>
-                      <TableCell className="whitespace-nowrap">
-                        {formatDate(d.data)}
-                      </TableCell>
+                      <TableCell className="whitespace-nowrap">{formatDate(d.data)}</TableCell>
                       <TableCell>{areaNome(d.areaId)}</TableCell>
                       <TableCell>
-                        <Badge
-                          variant="outline"
-                          style={{
-                            borderColor: cat.cor,
-                            color: cat.cor,
-                          }}
-                        >
+                        <Badge variant="outline" style={{ borderColor: cat.cor, color: cat.cor }}>
                           {cat.nome}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {d.descricao ?? '—'}
+                      <TableCell className="text-muted-foreground">{d.descricao ?? '—'}</TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {nomeUsuario(d.lancadoPorId)}
                       </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrency(d.valor)}
-                      </TableCell>
+                      <TableCell className="text-right font-medium">{formatCurrency(d.valor)}</TableCell>
                       <TableCell>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          title="Excluir"
-                          onClick={() => removerDespesa(d.id)}
-                        >
-                          <Trash2 className="text-destructive" />
-                        </Button>
+                        {podeDel && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            title="Excluir"
+                            onClick={() => removerDespesa(d.id)}
+                          >
+                            <Trash2 className="text-destructive" />
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   )
