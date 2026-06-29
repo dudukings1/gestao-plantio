@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@geoman-io/leaflet-geoman-free": "^2.20.0",
+    "@supabase/supabase-js": "^2.108.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "jspdf": "^4.2.1",

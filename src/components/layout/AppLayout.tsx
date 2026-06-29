@@ -1,7 +1,8 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { BarChart3, Boxes, List, LogOut, Map, Package, PlusCircle, Sprout, TrendingUp, Users } from 'lucide-react'
+import { BarChart3, Boxes, List, Loader2, LogOut, Map, Package, PlusCircle, Sprout, TrendingUp, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/store/AuthContext'
+import { useData } from '@/store/DataContext'
 import type { Permissao } from '@/lib/auth'
 
 interface NavItem {
@@ -50,6 +51,7 @@ function NavLinks({ items, className }: { items: NavItem[]; className?: string }
 
 export function AppLayout() {
   const { usuario, logout, pode } = useAuth()
+  const { carregando: dadosCarregando } = useData()
   const navigate = useNavigate()
 
   const navVisivel = NAV_ITEMS.filter((item) => pode(item.permissao))
@@ -123,7 +125,14 @@ export function AppLayout() {
         </header>
 
         <main className="flex-1 overflow-auto p-4 md:p-6">
-          <Outlet />
+          {dadosCarregando ? (
+            <div className="flex h-40 items-center justify-center gap-2 text-muted-foreground">
+              <Loader2 className="size-5 animate-spin" />
+              <span className="text-sm">Carregando dados…</span>
+            </div>
+          ) : (
+            <Outlet />
+          )}
         </main>
       </div>
     </div>
