@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="40" fill="#16a34a"/>
+  <!-- Caule -->
+  <line x1="96" y1="148" x2="96" y2="80" stroke="white" stroke-width="8" stroke-linecap="round"/>
+  <!-- Folha esquerda -->
+  <path d="M96 110 C72 95 56 72 68 52 C80 70 96 80 96 110Z" fill="white"/>
+  <!-- Folha direita -->
+  <path d="M96 95 C120 80 136 57 124 37 C112 55 96 65 96 95Z" fill="white"/>
+  <!-- Broto topo -->
+  <circle cx="96" cy="72" r="10" fill="white"/>
+</svg>
