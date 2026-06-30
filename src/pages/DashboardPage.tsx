@@ -3,7 +3,7 @@ import {
   Bar, BarChart, Cell, Legend, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
-import { FileDown, Landmark, MapPinned, Ruler, Wallet } from 'lucide-react'
+import { FileDown, Landmark, MapPinned, RefreshCw, Ruler, Wallet } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
@@ -14,9 +14,16 @@ import { formatCurrency, cn } from '@/lib/utils'
 import { gerarRelatorioPDF } from '@/lib/relatorio'
 
 export function DashboardPage() {
-  const { areas, despesas, safras, categorias } = useData()
+  const { areas, despesas, safras, categorias, recarregar } = useData()
 
   const [safraFiltro, setSafraFiltro] = React.useState('')
+  const [atualizando, setAtualizando] = React.useState(false)
+
+  async function atualizar() {
+    setAtualizando(true)
+    await recarregar()
+    setAtualizando(false)
+  }
 
   const despesasFiltradas = React.useMemo(
     () => despesas.filter((d) => (safraFiltro ? d.safraId === safraFiltro : true)),
@@ -73,6 +80,9 @@ export function DashboardPage() {
               </Select>
             </div>
           )}
+          <Button variant="outline" onClick={atualizar} disabled={atualizando}>
+            <RefreshCw className={atualizando ? 'animate-spin' : ''} /> Atualizar
+          </Button>
           <Button
             variant="outline"
             onClick={() => gerarRelatorioPDF(areas, despesasFiltradas, categorias)}

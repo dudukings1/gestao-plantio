@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Download, Trash2 } from 'lucide-react'
+import { Download, RefreshCw, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -16,7 +16,7 @@ import { getCategoriaNome, getCategoriaCor } from '@/lib/categories'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
 export function HistoricoPage() {
-  const { areas, despesas, safras, categorias, removerDespesa, todosTagsUsados } = useData()
+  const { areas, despesas, safras, categorias, removerDespesa, todosTagsUsados, recarregar } = useData()
   const { usuario, usuarios, pode } = useAuth()
 
   const [areaId, setAreaId] = React.useState('')
@@ -25,6 +25,21 @@ export function HistoricoPage() {
   const [tagsFiltro, setTagsFiltro] = React.useState<string[]>([])
   const [de, setDe] = React.useState('')
   const [ate, setAte] = React.useState('')
+  const [atualizando, setAtualizando] = React.useState(false)
+
+  const despesasVisiveis = React.useMemo(
+    () =>
+      usuario?.role === 'funcionario'
+        ? despesas.filter((d) => d.lancadoPorId === usuario.id)
+        : despesas,
+    [despesas, usuario]
+  )
+
+  async function atualizar() {
+    setAtualizando(true)
+    await recarregar()
+    setAtualizando(false)
+  }
 
   const areaNome = React.useCallback(
     (id: string) => areas.find((a) => a.id === id)?.nome ?? '—',
@@ -40,7 +55,7 @@ export function HistoricoPage() {
   )
 
   const filtradas = React.useMemo(() => {
-    return despesas
+    return despesasVisiveis
       .filter((d) => (areaId ? d.areaId === areaId : true))
       .filter((d) => (categoriaId ? d.categoria === categoriaId : true))
       .filter((d) => (safraId ? d.safraId === safraId : true))
@@ -50,7 +65,7 @@ export function HistoricoPage() {
       .filter((d) => (de ? d.data >= de : true))
       .filter((d) => (ate ? d.data <= ate : true))
       .sort((a, b) => (a.data < b.data ? 1 : -1))
-  }, [despesas, areaId, categoriaId, safraId, tagsFiltro, de, ate])
+  }, [despesasVisiveis, areaId, categoriaId, safraId, tagsFiltro, de, ate])
 
   const total = filtradas.reduce((s, d) => s + d.valor, 0)
 
@@ -92,11 +107,16 @@ export function HistoricoPage() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">Histórico de despesas</h1>
-        {pode('exportarCSV') && (
-          <Button variant="outline" onClick={exportarCsv} disabled={filtradas.length === 0}>
-            <Download /> Exportar CSV
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={atualizar} disabled={atualizando}>
+            <RefreshCw className={atualizando ? 'animate-spin' : ''} /> Atualizar
           </Button>
-        )}
+          {pode('exportarCSV') && (
+            <Button variant="outline" onClick={exportarCsv} disabled={filtradas.length === 0}>
+              <Download /> Exportar CSV
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Filtros */}

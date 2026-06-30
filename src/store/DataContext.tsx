@@ -16,6 +16,7 @@ import {
 
 interface DataContextValue {
   carregando: boolean
+  recarregar: () => Promise<void>
 
   // ── Áreas ─────────────────────────────────────────────────────
   areas: Area[]
@@ -83,18 +84,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [categorias, setCategorias] = React.useState<Categoria[]>([])
   const [tagsCadastradas, setTagsCadastradas] = React.useState<TagCadastrada[]>([])
 
-  // ── Carga inicial ─────────────────────────────────────────────
-  React.useEffect(() => {
-    Promise.all([
-      db.from('areas').select('*').order('criado_em'),
-      db.from('despesas').select('*').order('data', { ascending: false }),
-      db.from('safras').select('*').order('criado_em'),
-      db.from('insumos').select('*').order('nome'),
-      db.from('movimentacoes').select('*').order('criado_em'),
-      db.from('produtos_colhidos').select('*').order('data', { ascending: false }),
-      db.from('categorias').select('*').order('nome'),
-      db.from('tags_cadastradas').select('*').order('nome'),
-    ]).then(([a, d, s, i, m, pc, c, tc]) => {
+  // ── Carga (inicial e manual) ────────────────────────────────────
+  const recarregar = React.useCallback(async () => {
+    setCarregando(true)
+    try {
+      const [a, d, s, i, m, pc, c, tc] = await Promise.all([
+        db.from('areas').select('*').order('criado_em'),
+        db.from('despesas').select('*').order('data', { ascending: false }),
+        db.from('safras').select('*').order('criado_em'),
+        db.from('insumos').select('*').order('nome'),
+        db.from('movimentacoes').select('*').order('criado_em'),
+        db.from('produtos_colhidos').select('*').order('data', { ascending: false }),
+        db.from('categorias').select('*').order('nome'),
+        db.from('tags_cadastradas').select('*').order('nome'),
+      ])
       if (a.data) setAreas(a.data.map(mapArea))
       if (d.data) setDespesas(d.data.map(mapDespesa))
       if (s.data) setSafras(s.data.map(mapSafra))
@@ -114,13 +117,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           setCategorias(c.data.map(mapCategoria))
         }
       }
-
+    } catch (err) {
+      erroDB('carga de dados', err)
+    } finally {
       setCarregando(false)
-    }).catch((err) => {
-      erroDB('carga inicial', err)
-      setCarregando(false)
-    })
+    }
   }, [])
+
+  React.useEffect(() => {
+    recarregar()
+  }, [recarregar])
 
   // ── Áreas ─────────────────────────────────────────────────────
 
@@ -383,7 +389,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   return (
     <DataContext.Provider
       value={{
-        carregando,
+        carregando, recarregar,
         areas, adicionarArea, atualizarArea, removerArea, totalPorArea,
         despesas, adicionarDespesa, removerDespesa,
         safras, safraAtiva, adicionarSafra, toggleSafra, removerSafra,
