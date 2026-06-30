@@ -3,23 +3,32 @@ export interface LatLng {
   lng: number
 }
 
-export type CategoriaId =
-  | 'diesel'
-  | 'adubo'
-  | 'semente'
-  | 'defensivo'
-  | 'mao_de_obra'
-  | 'manutencao'
-  | 'outros'
+export type CategoriaId = string
 
-export type AtividadeId =
-  | 'plantio'
-  | 'colheita'
-  | 'pulverizacao'
-  | 'adubacao'
-  | 'irrigacao'
-  | 'manutencao'
-  | 'outro'
+export interface Categoria {
+  id: string
+  nome: string
+  cor: string
+  criadoEm: string
+}
+
+export interface TagCadastrada {
+  id: string
+  nome: string
+  criadoEm: string
+}
+
+export interface ProdutoColhido {
+  id: string
+  areaId: string
+  safraId?: string
+  cultura: string
+  quantidade: number
+  unidade: string
+  data: string
+  observacao?: string
+  criadoEm: string
+}
 
 export interface Area {
   id: string
@@ -35,15 +44,13 @@ export interface Area {
 export interface Despesa {
   id: string
   areaId: string
-  categoria: CategoriaId
+  categoria: string
   valor: number
   data: string
   descricao?: string
   criadoEm: string
   lancadoPorId?: string
-  // Novas fields (opcionais para compatibilidade com dados antigos)
   safraId?: string
-  tipoAtividade?: AtividadeId
   tags?: string[]
   insumoId?: string
   quantidadeInsumo?: number
@@ -51,7 +58,7 @@ export interface Despesa {
 
 export interface Safra {
   id: string
-  nome: string      // "Soja 24/25"
+  nome: string
   cultura: string
   ativa: boolean
   criadoEm: string
@@ -60,8 +67,8 @@ export interface Safra {
 export interface Insumo {
   id: string
   nome: string
-  unidade: string   // "L", "kg", "sc", "un"
-  categoriaId?: CategoriaId
+  unidade: string
+  categoriaId?: string
   estoqueMinimo?: number
   criadoEm: string
 }
@@ -71,22 +78,8 @@ export interface MovimentacaoEstoque {
   insumoId: string
   tipo: 'entrada' | 'saida'
   quantidade: number
-  despesaId?: string     // saída automática via despesa
+  despesaId?: string
   observacao?: string
-  criadoEm: string
-}
-
-export interface Entrada {
-  id: string
-  areaId: string
-  safraId?: string
-  cultura: string
-  quantidade: number
-  unidade: 'sc' | 'ton'
-  precoUnitario: number
-  total: number
-  comprador?: string
-  data: string
   criadoEm: string
 }
 

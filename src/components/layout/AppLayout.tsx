@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { BarChart3, Boxes, List, Loader2, LogOut, Map, Package, PlusCircle, Sprout, TrendingUp, Users } from 'lucide-react'
+import { BarChart3, Boxes, List, Loader2, LogOut, Map, Package, PlusCircle, Sprout, Tag, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/store/AuthContext'
 import { useData } from '@/store/DataContext'
@@ -20,7 +20,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: BarChart3, end: false, permissao: 'verDashboard' },
   { to: '/safras', label: 'Safras', icon: Boxes, end: false, permissao: 'gerenciarSafras' },
   { to: '/estoque', label: 'Estoque', icon: Package, end: false, permissao: 'verEstoque' },
-  { to: '/entradas', label: 'Entradas', icon: TrendingUp, end: false, permissao: 'verEntradas' },
+  { to: '/categorias', label: 'Categorias e Tags', icon: Tag, end: false, permissao: 'gerenciarCategorias' },
   { to: '/usuarios', label: 'Usuários', icon: Users, end: false, permissao: 'gerenciarUsuarios' },
 ]
 

@@ -3,18 +3,18 @@ import {
   Bar, BarChart, Cell, Legend, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
-import { FileDown, Landmark, MapPinned, Ruler, TrendingUp, Wallet } from 'lucide-react'
+import { FileDown, Landmark, MapPinned, Ruler, Wallet } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { useData } from '@/store/DataContext'
-import { CATEGORIAS } from '@/lib/categories'
+import { getCategoriaCor, getCategoriaNome } from '@/lib/categories'
 import { formatCurrency, cn } from '@/lib/utils'
 import { gerarRelatorioPDF } from '@/lib/relatorio'
 
 export function DashboardPage() {
-  const { areas, despesas, safras, entradas } = useData()
+  const { areas, despesas, safras, categorias } = useData()
 
   const [safraFiltro, setSafraFiltro] = React.useState('')
 
@@ -23,50 +23,36 @@ export function DashboardPage() {
     [despesas, safraFiltro]
   )
 
-  const entradasFiltradas = React.useMemo(
-    () => entradas.filter((e) => (safraFiltro ? e.safraId === safraFiltro : true)),
-    [entradas, safraFiltro]
-  )
-
   const totalGeral = despesasFiltradas.reduce((s, d) => s + d.valor, 0)
   const totalHectares = areas.reduce((s, a) => s + a.hectares, 0)
   const custoPorHectare = totalHectares > 0 ? totalGeral / totalHectares : 0
   const totalOrcamento = areas.reduce((s, a) => s + (a.orcamento ?? 0), 0)
-  const totalReceita = entradasFiltradas.reduce((s, e) => s + e.total, 0)
 
   const porArea = React.useMemo(
     () =>
       areas
         .map((a) => {
           const gasto = despesasFiltradas.filter((d) => d.areaId === a.id).reduce((s, d) => s + d.valor, 0)
-          const receita = entradasFiltradas.filter((e) => e.areaId === a.id).reduce((s, e) => s + e.total, 0)
           return {
-            nome: a.nome,
-            cor: a.cor,
-            total: gasto,
-            receita,
-            resultado: receita - gasto,
-            orcamento: a.orcamento ?? 0,
-            hectares: a.hectares,
+            nome: a.nome, cor: a.cor, total: gasto,
+            orcamento: a.orcamento ?? 0, hectares: a.hectares,
           }
         })
         .sort((a, b) => b.total - a.total),
-    [areas, despesasFiltradas, entradasFiltradas]
+    [areas, despesasFiltradas]
   )
 
   const porCategoria = React.useMemo(
     () =>
-      CATEGORIAS.map((c) => ({
+      categorias.map((c) => ({
         nome: c.nome,
-        cor: c.cor,
+        cor: getCategoriaCor(categorias, c.id),
         total: despesasFiltradas.filter((d) => d.categoria === c.id).reduce((s, d) => s + d.valor, 0),
       })).filter((c) => c.total > 0),
-    [despesasFiltradas]
+    [categorias, despesasFiltradas]
   )
 
   const areasComOrcamento = porArea.filter((a) => a.orcamento > 0)
-  const areasComResultado = porArea.filter((a) => a.receita > 0 || a.total > 0)
-  const temEntradas = entradasFiltradas.length > 0
 
   return (
     <div className="flex flex-col gap-5">
@@ -89,7 +75,7 @@ export function DashboardPage() {
           )}
           <Button
             variant="outline"
-            onClick={() => gerarRelatorioPDF(areas, despesasFiltradas)}
+            onClick={() => gerarRelatorioPDF(areas, despesasFiltradas, categorias)}
             disabled={despesasFiltradas.length === 0}
           >
             <FileDown /> Exportar PDF
@@ -103,17 +89,6 @@ export function DashboardPage() {
         <Kpi icon={<MapPinned className="size-5" />} label="Áreas" value={String(areas.length)} />
         <Kpi icon={<Ruler className="size-5" />} label="Hectares" value={`${totalHectares.toFixed(2)} ha`} />
         <Kpi icon={<Landmark className="size-5" />} label="Custo médio / ha" value={formatCurrency(custoPorHectare)} />
-        {temEntradas && (
-          <>
-            <Kpi icon={<TrendingUp className="size-5 text-green-600" />} label="Receita total" value={formatCurrency(totalReceita)} cor="green" />
-            <Kpi
-              icon={<TrendingUp className={cn('size-5', totalReceita - totalGeral >= 0 ? 'text-green-600' : 'text-destructive')} />}
-              label="Resultado geral"
-              value={`${totalReceita - totalGeral >= 0 ? '+' : ''}${formatCurrency(totalReceita - totalGeral)}`}
-              cor={totalReceita - totalGeral >= 0 ? 'green' : 'red'}
-            />
-          </>
-        )}
       </div>
 
       {despesasFiltradas.length === 0 ? (
@@ -166,31 +141,6 @@ export function DashboardPage() {
               </CardContent>
             </Card>
           </div>
-
-          {/* Resultado por área (receita vs despesas) */}
-          {temEntradas && areasComResultado.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Receita vs Despesas por área</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={Math.max(200, areasComResultado.length * 70)}>
-                  <BarChart data={areasComResultado} layout="vertical" margin={{ left: 8, right: 24 }}>
-                    <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v: number) => `R$${(v / 1000).toFixed(0)}k`} />
-                    <YAxis type="category" dataKey="nome" tick={{ fontSize: 12 }} width={70} />
-                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                    <Legend />
-                    <Bar dataKey="receita" name="Receita" fill="#4ade80" radius={[0, 4, 4, 0]} />
-                    <Bar dataKey="total" name="Despesas" radius={[0, 4, 4, 0]}>
-                      {areasComResultado.map((entry, i) => (
-                        <Cell key={i} fill={entry.total > entry.receita ? '#dc2626' : entry.cor} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          )}
 
           {/* Orçamento vs Realizado */}
           {areasComOrcamento.length > 0 && (
@@ -266,29 +216,50 @@ export function DashboardPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Despesas por categoria */}
+          {porCategoria.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle>Detalhamento por categoria</CardTitle></CardHeader>
+              <CardContent>
+                <div className="flex flex-col gap-2">
+                  {porCategoria.sort((a, b) => b.total - a.total).map((c) => {
+                    const pct = totalGeral > 0 ? (c.total / totalGeral) * 100 : 0
+                    return (
+                      <div key={c.nome}>
+                        <div className="flex items-center justify-between text-sm mb-1">
+                          <span className="flex items-center gap-2">
+                            <span className="size-3 rounded-full" style={{ backgroundColor: c.cor }} />
+                            {c.nome}
+                          </span>
+                          <span className="font-medium">{formatCurrency(c.total)} <span className="text-muted-foreground text-xs">({pct.toFixed(1)}%)</span></span>
+                        </div>
+                        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: c.cor }} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
     </div>
   )
 }
 
-function Kpi({ icon, label, value, cor }: { icon: React.ReactNode; label: string; value: string; cor?: 'green' | 'red' }) {
+function Kpi({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <Card>
       <CardContent className="flex items-center gap-3 pt-6">
-        <div className={cn(
-          'flex size-10 items-center justify-center rounded-lg',
-          cor === 'green' ? 'bg-green-500/10 text-green-600' :
-          cor === 'red' ? 'bg-destructive/10 text-destructive' :
-          'bg-primary/10 text-primary'
-        )}>
+        <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
           {icon}
         </div>
         <div>
           <p className="text-xs text-muted-foreground">{label}</p>
-          <p className={cn('text-lg font-semibold',
-            cor === 'green' ? 'text-green-600' : cor === 'red' ? 'text-destructive' : ''
-          )}>{value}</p>
+          <p className="text-lg font-semibold">{value}</p>
         </div>
       </CardContent>
     </Card>

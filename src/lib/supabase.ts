@@ -1,20 +1,21 @@
 import { createClient } from '@supabase/supabase-js'
-import type { Area, Despesa, Entrada, Insumo, LatLng, MovimentacaoEstoque, Safra, Usuario } from './types'
+import type {
+  Area, Categoria, Despesa, Insumo, LatLng, MovimentacaoEstoque,
+  ProdutoColhido, Safra, TagCadastrada, Usuario,
+} from './types'
 
 const url = import.meta.env.VITE_SUPABASE_URL as string
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
 export const db = createClient(url, key)
 
-// ── Mappers: linha do banco (snake_case) → tipo TypeScript (camelCase) ──
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Row = Record<string, any>
 
+// ── Mappers ─────────────────────────────────────────────────────
+
 export const mapArea = (r: Row): Area => ({
-  id: r.id,
-  nome: r.nome,
-  cor: r.cor,
+  id: r.id, nome: r.nome, cor: r.cor,
   poligono: r.poligono as LatLng[],
   hectares: Number(r.hectares),
   cultura: r.cultura ?? undefined,
@@ -23,15 +24,11 @@ export const mapArea = (r: Row): Area => ({
 })
 
 export const mapDespesa = (r: Row): Despesa => ({
-  id: r.id,
-  areaId: r.area_id,
-  categoria: r.categoria,
-  valor: Number(r.valor),
-  data: r.data,
+  id: r.id, areaId: r.area_id, categoria: r.categoria,
+  valor: Number(r.valor), data: r.data,
   descricao: r.descricao ?? undefined,
   lancadoPorId: r.lancado_por_id ?? undefined,
   safraId: r.safra_id ?? undefined,
-  tipoAtividade: r.tipo_atividade ?? undefined,
   tags: r.tags ?? [],
   insumoId: r.insumo_id ?? undefined,
   quantidadeInsumo: r.quantidade_insumo != null ? Number(r.quantidade_insumo) : undefined,
@@ -39,25 +36,18 @@ export const mapDespesa = (r: Row): Despesa => ({
 })
 
 export const mapSafra = (r: Row): Safra => ({
-  id: r.id,
-  nome: r.nome,
-  cultura: r.cultura,
-  ativa: r.ativa,
-  criadoEm: r.criado_em,
+  id: r.id, nome: r.nome, cultura: r.cultura, ativa: r.ativa, criadoEm: r.criado_em,
 })
 
 export const mapInsumo = (r: Row): Insumo => ({
-  id: r.id,
-  nome: r.nome,
-  unidade: r.unidade,
+  id: r.id, nome: r.nome, unidade: r.unidade,
   categoriaId: r.categoria_id ?? undefined,
   estoqueMinimo: r.estoque_minimo != null ? Number(r.estoque_minimo) : undefined,
   criadoEm: r.criado_em,
 })
 
 export const mapMovimentacao = (r: Row): MovimentacaoEstoque => ({
-  id: r.id,
-  insumoId: r.insumo_id,
+  id: r.id, insumoId: r.insumo_id,
   tipo: r.tipo as 'entrada' | 'saida',
   quantidade: Number(r.quantidade),
   despesaId: r.despesa_id ?? undefined,
@@ -65,31 +55,29 @@ export const mapMovimentacao = (r: Row): MovimentacaoEstoque => ({
   criadoEm: r.criado_em,
 })
 
-export const mapEntrada = (r: Row): Entrada => ({
-  id: r.id,
-  areaId: r.area_id,
+export const mapCategoria = (r: Row): Categoria => ({
+  id: r.id, nome: r.nome, cor: r.cor, criadoEm: r.criado_em,
+})
+
+export const mapTagCadastrada = (r: Row): TagCadastrada => ({
+  id: r.id, nome: r.nome, criadoEm: r.criado_em,
+})
+
+export const mapProdutoColhido = (r: Row): ProdutoColhido => ({
+  id: r.id, areaId: r.area_id,
   safraId: r.safra_id ?? undefined,
-  cultura: r.cultura,
-  quantidade: Number(r.quantidade),
-  unidade: r.unidade as 'sc' | 'ton',
-  precoUnitario: Number(r.preco_unitario),
-  total: Number(r.total),
-  comprador: r.comprador ?? undefined,
-  data: r.data,
+  cultura: r.cultura, quantidade: Number(r.quantidade),
+  unidade: r.unidade, data: r.data,
+  observacao: r.observacao ?? undefined,
   criadoEm: r.criado_em,
 })
 
 export const mapUsuario = (r: Row): Usuario => ({
-  id: r.id,
-  nome: r.nome,
-  login: r.login,
-  senhaHash: r.senha_hash,
-  role: r.role as 'admin' | 'funcionario',
-  ativo: r.ativo,
-  criadoEm: r.criado_em,
+  id: r.id, nome: r.nome, login: r.login, senhaHash: r.senha_hash,
+  role: r.role as 'admin' | 'funcionario', ativo: r.ativo, criadoEm: r.criado_em,
 })
 
-// ── Serializers: tipo TypeScript → linha do banco ───────────────
+// ── Serializers ──────────────────────────────────────────────────
 
 export const rowArea = (a: Area) => ({
   id: a.id, nome: a.nome, cor: a.cor, poligono: a.poligono,
@@ -100,9 +88,9 @@ export const rowArea = (a: Area) => ({
 export const rowDespesa = (d: Despesa) => ({
   id: d.id, area_id: d.areaId, categoria: d.categoria, valor: d.valor,
   data: d.data, descricao: d.descricao ?? null, lancado_por_id: d.lancadoPorId ?? null,
-  safra_id: d.safraId ?? null, tipo_atividade: d.tipoAtividade ?? null,
-  tags: d.tags ?? [], insumo_id: d.insumoId ?? null,
-  quantidade_insumo: d.quantidadeInsumo ?? null, criado_em: d.criadoEm,
+  safra_id: d.safraId ?? null, tags: d.tags ?? [],
+  insumo_id: d.insumoId ?? null, quantidade_insumo: d.quantidadeInsumo ?? null,
+  criado_em: d.criadoEm,
 })
 
 export const rowSafra = (s: Safra) => ({
@@ -110,7 +98,8 @@ export const rowSafra = (s: Safra) => ({
 })
 
 export const rowInsumo = (i: Insumo) => ({
-  id: i.id, nome: i.nome, unidade: i.unidade, categoria_id: i.categoriaId ?? null,
+  id: i.id, nome: i.nome, unidade: i.unidade,
+  categoria_id: i.categoriaId ?? null,
   estoque_minimo: i.estoqueMinimo ?? null, criado_em: i.criadoEm,
 })
 
@@ -119,10 +108,18 @@ export const rowMovimentacao = (m: MovimentacaoEstoque) => ({
   despesa_id: m.despesaId ?? null, observacao: m.observacao ?? null, criado_em: m.criadoEm,
 })
 
-export const rowEntrada = (e: Entrada) => ({
-  id: e.id, area_id: e.areaId, safra_id: e.safraId ?? null, cultura: e.cultura,
-  quantidade: e.quantidade, unidade: e.unidade, preco_unitario: e.precoUnitario,
-  total: e.total, comprador: e.comprador ?? null, data: e.data, criado_em: e.criadoEm,
+export const rowCategoria = (c: Categoria) => ({
+  id: c.id, nome: c.nome, cor: c.cor, criado_em: c.criadoEm,
+})
+
+export const rowTagCadastrada = (t: TagCadastrada) => ({
+  id: t.id, nome: t.nome, criado_em: t.criadoEm,
+})
+
+export const rowProdutoColhido = (p: ProdutoColhido) => ({
+  id: p.id, area_id: p.areaId, safra_id: p.safraId ?? null,
+  cultura: p.cultura, quantidade: p.quantidade, unidade: p.unidade,
+  data: p.data, observacao: p.observacao ?? null, criado_em: p.criadoEm,
 })
 
 export const rowUsuario = (u: Usuario) => ({

@@ -8,7 +8,7 @@ import { LoginPage } from '@/pages/LoginPage'
 import { UsuariosPage } from '@/pages/UsuariosPage'
 import { SafrasPage } from '@/pages/SafrasPage'
 import { EstoquePage } from '@/pages/EstoquePage'
-import { EntradasPage } from '@/pages/EntradasPage'
+import { CategoriasTagsPage } from '@/pages/CategoriasTagsPage'
 import { useAuth } from '@/store/AuthContext'
 
 function RequireAuth() {
@@ -43,7 +43,7 @@ export default function App() {
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="usuarios" element={<UsuariosPage />} />
             <Route path="safras" element={<SafrasPage />} />
-            <Route path="entradas" element={<EntradasPage />} />
+            <Route path="categorias" element={<CategoriasTagsPage />} />
           </Route>
 
           {/* Estoque: admin + funcionário (verEstoque) */}

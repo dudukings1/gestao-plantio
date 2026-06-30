@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Check, Plus, Star, Trash2 } from 'lucide-react'
+import { Check, Plus, Star, StarOff, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,7 +9,7 @@ import { useAuth } from '@/store/AuthContext'
 import { cn, formatDate } from '@/lib/utils'
 
 export function SafrasPage() {
-  const { safras, safraAtiva, adicionarSafra, ativarSafra, removerSafra } = useData()
+  const { safras, adicionarSafra, toggleSafra, removerSafra } = useData()
   const { usuario } = useAuth()
 
   const [mostrarForm, setMostrarForm] = React.useState(false)
@@ -35,7 +35,7 @@ export function SafrasPage() {
         <div>
           <h1 className="text-2xl font-bold">Safras</h1>
           <p className="text-sm text-muted-foreground">
-            Agrupe despesas e vendas por safra
+            Agrupe despesas por safra. Múltiplas safras podem estar ativas ao mesmo tempo.
           </p>
         </div>
         {isAdmin && (
@@ -80,7 +80,7 @@ export function SafrasPage() {
                   onChange={(e) => setAtivaForm(e.target.checked)}
                   className="accent-primary"
                 />
-                Definir como safra ativa (pré-selecionada no lançamento)
+                Iniciar como ativa
               </label>
               <div className="flex gap-2">
                 <Button type="submit" disabled={!nome.trim()}>
@@ -99,9 +99,7 @@ export function SafrasPage() {
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
             Nenhuma safra cadastrada ainda.
-            {isAdmin && (
-              <> Clique em <strong>Nova safra</strong> para começar.</>
-            )}
+            {isAdmin && <> Clique em <strong>Nova safra</strong> para começar.</>}
           </CardContent>
         </Card>
       ) : (
@@ -109,15 +107,14 @@ export function SafrasPage() {
           {[...safras].reverse().map((s) => (
             <Card
               key={s.id}
-              className={cn(
-                'transition-colors',
-                s.ativa && 'border-primary/50 bg-primary/5'
-              )}
+              className={cn('transition-colors', s.ativa && 'border-primary/50 bg-primary/5')}
             >
               <CardContent className="flex items-center justify-between gap-4 py-4">
                 <div className="flex items-center gap-3">
-                  {s.ativa && (
+                  {s.ativa ? (
                     <Star className="size-4 shrink-0 fill-primary text-primary" />
+                  ) : (
+                    <Star className="size-4 shrink-0 text-muted-foreground/30" />
                   )}
                   <div>
                     <p className="font-semibold">{s.nome}</p>
@@ -134,26 +131,27 @@ export function SafrasPage() {
 
                 {isAdmin && (
                   <div className="flex shrink-0 gap-1">
-                    {!s.ativa && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => ativarSafra(s.id)}
-                      >
-                        <Star className="mr-1 size-3" /> Ativar
-                      </Button>
-                    )}
-                    {safraAtiva?.id !== s.id && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => {
-                          if (confirm(`Excluir a safra "${s.nome}"?`)) removerSafra(s.id)
-                        }}
-                      >
-                        <Trash2 className="size-4 text-destructive" />
-                      </Button>
-                    )}
+                    <Button
+                      size="sm"
+                      variant={s.ativa ? 'outline' : 'outline'}
+                      onClick={() => toggleSafra(s.id)}
+                      title={s.ativa ? 'Desativar safra' : 'Ativar safra'}
+                    >
+                      {s.ativa ? (
+                        <><StarOff className="mr-1 size-3" /> Desativar</>
+                      ) : (
+                        <><Star className="mr-1 size-3" /> Ativar</>
+                      )}
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => {
+                        if (confirm(`Excluir a safra "${s.nome}"?`)) removerSafra(s.id)
+                      }}
+                    >
+                      <Trash2 className="size-4 text-destructive" />
+                    </Button>
                   </div>
                 )}
               </CardContent>

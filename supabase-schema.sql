@@ -116,3 +116,43 @@ create table if not exists entradas (
 alter table entradas enable row level security;
 drop policy if exists "anon_all" on entradas;
 create policy "anon_all" on entradas for all to anon using (true) with check (true);
+
+-- ── Categorias de despesa (cadastráveis) ──────────────────────
+create table if not exists categorias (
+  id          text        primary key,
+  nome        text        not null,
+  cor         text        not null default '#64748b',
+  criado_em   timestamptz not null default now()
+);
+alter table categorias enable row level security;
+drop policy if exists "anon_all" on categorias;
+create policy "anon_all" on categorias for all to anon using (true) with check (true);
+
+-- ── Tags cadastradas ──────────────────────────────────────────
+create table if not exists tags_cadastradas (
+  id          text        primary key,
+  nome        text        not null unique,
+  criado_em   timestamptz not null default now()
+);
+alter table tags_cadastradas enable row level security;
+drop policy if exists "anon_all" on tags_cadastradas;
+create policy "anon_all" on tags_cadastradas for all to anon using (true) with check (true);
+
+-- ── Produtos colhidos (estoque de colheita por área) ──────────
+create table if not exists produtos_colhidos (
+  id          text        primary key,
+  area_id     text        not null references areas(id) on delete cascade,
+  safra_id    text        references safras(id) on delete set null,
+  cultura     text        not null,
+  quantidade  numeric     not null,
+  unidade     text        not null,
+  data        date        not null,
+  observacao  text,
+  criado_em   timestamptz not null default now()
+);
+alter table produtos_colhidos enable row level security;
+drop policy if exists "anon_all" on produtos_colhidos;
+create policy "anon_all" on produtos_colhidos for all to anon using (true) with check (true);
+
+-- ── Remover coluna tipo_atividade de despesas (se existir) ─────
+-- alter table despesas drop column if exists tipo_atividade;

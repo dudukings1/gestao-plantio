@@ -9,21 +9,18 @@ import { Select } from '@/components/ui/select'
 import { TagInput } from '@/components/ui/tag-input'
 import { useData } from '@/store/DataContext'
 import { useAuth } from '@/store/AuthContext'
-import { CATEGORIAS } from '@/lib/categories'
-import { ATIVIDADES } from '@/lib/atividades'
 import { formatCurrency } from '@/lib/utils'
-import type { AtividadeId, CategoriaId } from '@/lib/types'
 
 interface Item {
-  categoria: CategoriaId
+  categoriaId: string
   valor: string
   descricao: string
   insumoId: string
   quantidadeInsumo: string
 }
 
-function novoItem(): Item {
-  return { categoria: 'diesel', valor: '', descricao: '', insumoId: '', quantidadeInsumo: '' }
+function novoItem(primeiraCategoriaId: string): Item {
+  return { categoriaId: primeiraCategoriaId, valor: '', descricao: '', insumoId: '', quantidadeInsumo: '' }
 }
 
 function hoje(): string {
@@ -33,20 +30,20 @@ function hoje(): string {
 export function LancarDespesaPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { areas, safras, safraAtiva, insumos, adicionarDespesa, todosTagsUsados } = useData()
+  const { areas, safras, safraAtiva, insumos, categorias, adicionarDespesa, todosTagsUsados } = useData()
   const { usuario } = useAuth()
+
+  const primeiraCat = categorias[0]?.id ?? ''
 
   const [areaId, setAreaId] = React.useState(
     () => searchParams.get('area') ?? areas[0]?.id ?? ''
   )
   const [data, setData] = React.useState(hoje)
   const [safraId, setSafraId] = React.useState(() => safraAtiva?.id ?? '')
-  const [tipoAtividade, setTipoAtividade] = React.useState<AtividadeId | ''>('')
   const [tags, setTags] = React.useState<string[]>([])
-  const [itens, setItens] = React.useState<Item[]>([novoItem()])
+  const [itens, setItens] = React.useState<Item[]>(() => [novoItem(primeiraCat)])
   const [salvo, setSalvo] = React.useState(false)
 
-  // Sincroniza safraId quando safraAtiva muda (ex: usuário muda a safra ativa em outra aba)
   React.useEffect(() => {
     if (!safraId && safraAtiva) setSafraId(safraAtiva.id)
   }, [safraAtiva, safraId])
@@ -54,6 +51,13 @@ export function LancarDespesaPage() {
   React.useEffect(() => {
     if (!areaId && areas[0]) setAreaId(areas[0].id)
   }, [areas, areaId])
+
+  // Atualiza a categoria padrão dos itens quando as categorias carregam
+  React.useEffect(() => {
+    if (categorias.length > 0 && itens.length === 1 && !itens[0].categoriaId) {
+      setItens([novoItem(categorias[0].id)])
+    }
+  }, [categorias, itens])
 
   function atualizarItem(index: number, patch: Partial<Item>) {
     setItens((prev) => prev.map((it, i) => (i === index ? { ...it, ...patch } : it)))
@@ -70,13 +74,12 @@ export function LancarDespesaPage() {
     validos.forEach((it) => {
       adicionarDespesa({
         areaId,
-        categoria: it.categoria,
+        categoria: it.categoriaId || primeiraCat,
         valor: Number.parseFloat(it.valor),
         data,
         descricao: it.descricao.trim() || undefined,
         lancadoPorId: usuario?.id,
         safraId: safraId || undefined,
-        tipoAtividade: tipoAtividade || undefined,
         tags,
         insumoId: it.insumoId || undefined,
         quantidadeInsumo: it.insumoId && it.quantidadeInsumo ? Number(it.quantidadeInsumo) : undefined,
@@ -84,9 +87,8 @@ export function LancarDespesaPage() {
     })
 
     setSalvo(true)
-    setItens([novoItem()])
+    setItens([novoItem(primeiraCat)])
     setTags([])
-    setTipoAtividade('')
     setTimeout(() => setSalvo(false), 2500)
   }
 
@@ -115,7 +117,7 @@ export function LancarDespesaPage() {
         <CardHeader><CardTitle>Dados do lançamento</CardTitle></CardHeader>
         <CardContent>
           <form onSubmit={salvar} className="flex flex-col gap-5">
-            {/* Linha 1: área + data */}
+            {/* Área + Data */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="area">Área</Label>
@@ -129,8 +131,8 @@ export function LancarDespesaPage() {
               </div>
             </div>
 
-            {/* Linha 2: safra + atividade */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {/* Safra */}
+            {safras.length > 0 && (
               <div>
                 <Label htmlFor="safra">Safra</Label>
                 <Select id="safra" value={safraId} onChange={(e) => setSafraId(e.target.value)}>
@@ -142,14 +144,7 @@ export function LancarDespesaPage() {
                   ))}
                 </Select>
               </div>
-              <div>
-                <Label htmlFor="atividade">Tipo de atividade</Label>
-                <Select id="atividade" value={tipoAtividade} onChange={(e) => setTipoAtividade(e.target.value as AtividadeId | '')}>
-                  <option value="">Nenhuma</option>
-                  {ATIVIDADES.map((a) => <option key={a.id} value={a.id}>{a.nome}</option>)}
-                </Select>
-              </div>
-            </div>
+            )}
 
             {/* Tags */}
             <div>
@@ -164,10 +159,10 @@ export function LancarDespesaPage() {
                 <div key={i} className="rounded-md border p-3 flex flex-col gap-2">
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_140px_auto]">
                     <Select
-                      value={it.categoria}
-                      onChange={(e) => atualizarItem(i, { categoria: e.target.value as CategoriaId })}
+                      value={it.categoriaId}
+                      onChange={(e) => atualizarItem(i, { categoriaId: e.target.value })}
                     >
-                      {CATEGORIAS.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                      {categorias.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
                     </Select>
                     <Input
                       type="number"
@@ -195,7 +190,7 @@ export function LancarDespesaPage() {
                     />
                   </div>
 
-                  {/* Vínculo com estoque (opcional) */}
+                  {/* Débito de estoque opcional */}
                   {insumos.length > 0 && (
                     <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-dashed">
                       <span className="text-xs text-muted-foreground shrink-0">Débito de estoque:</span>
@@ -210,10 +205,7 @@ export function LancarDespesaPage() {
                       {it.insumoId && (
                         <div className="flex items-center gap-1">
                           <Input
-                            type="number"
-                            min="0.01"
-                            step="0.01"
-                            placeholder="Qtd"
+                            type="number" min="0.01" step="0.01" placeholder="Qtd"
                             value={it.quantidadeInsumo}
                             onChange={(e) => atualizarItem(i, { quantidadeInsumo: e.target.value })}
                             className="w-24 h-8 text-sm"
@@ -227,7 +219,12 @@ export function LancarDespesaPage() {
                   )}
                 </div>
               ))}
-              <Button type="button" variant="outline" onClick={() => setItens((prev) => [...prev, novoItem()])} className="self-start">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setItens((prev) => [...prev, novoItem(primeiraCat)])}
+                className="self-start"
+              >
                 <Plus /> Adicionar item
               </Button>
             </div>

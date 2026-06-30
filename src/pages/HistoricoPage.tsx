@@ -12,18 +12,16 @@ import {
 } from '@/components/ui/table'
 import { useData } from '@/store/DataContext'
 import { useAuth } from '@/store/AuthContext'
-import { CATEGORIAS, getCategoria } from '@/lib/categories'
-import { ATIVIDADES, getAtividade } from '@/lib/atividades'
+import { getCategoriaNome, getCategoriaCor } from '@/lib/categories'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
 export function HistoricoPage() {
-  const { areas, despesas, safras, removerDespesa, todosTagsUsados } = useData()
+  const { areas, despesas, safras, categorias, removerDespesa, todosTagsUsados } = useData()
   const { usuario, usuarios, pode } = useAuth()
 
   const [areaId, setAreaId] = React.useState('')
-  const [categoria, setCategoria] = React.useState('')
+  const [categoriaId, setCategoriaId] = React.useState('')
   const [safraId, setSafraId] = React.useState('')
-  const [atividade, setAtividade] = React.useState('')
   const [tagsFiltro, setTagsFiltro] = React.useState<string[]>([])
   const [de, setDe] = React.useState('')
   const [ate, setAte] = React.useState('')
@@ -44,18 +42,15 @@ export function HistoricoPage() {
   const filtradas = React.useMemo(() => {
     return despesas
       .filter((d) => (areaId ? d.areaId === areaId : true))
-      .filter((d) => (categoria ? d.categoria === categoria : true))
+      .filter((d) => (categoriaId ? d.categoria === categoriaId : true))
       .filter((d) => (safraId ? d.safraId === safraId : true))
-      .filter((d) => (atividade ? d.tipoAtividade === atividade : true))
       .filter((d) =>
-        tagsFiltro.length === 0
-          ? true
-          : tagsFiltro.every((t) => d.tags?.includes(t))
+        tagsFiltro.length === 0 ? true : tagsFiltro.every((t) => d.tags?.includes(t))
       )
       .filter((d) => (de ? d.data >= de : true))
       .filter((d) => (ate ? d.data <= ate : true))
       .sort((a, b) => (a.data < b.data ? 1 : -1))
-  }, [despesas, areaId, categoria, safraId, atividade, tagsFiltro, de, ate])
+  }, [despesas, areaId, categoriaId, safraId, tagsFiltro, de, ate])
 
   const total = filtradas.reduce((s, d) => s + d.valor, 0)
 
@@ -66,15 +61,14 @@ export function HistoricoPage() {
 
   function exportarCsv() {
     const linhas = [
-      ['Data', 'Área', 'Safra', 'Atividade', 'Categoria', 'Descrição', 'Tags', 'Lançado por', 'Valor'],
+      ['Data', 'Área', 'Safra', 'Categoria', 'Descrição', 'Tags', 'Lançado por', 'Valor'],
       ...filtradas.map((d) => {
         const safra = safras.find((s) => s.id === d.safraId)
         return [
           d.data,
           areaNome(d.areaId),
           safra?.nome ?? '',
-          d.tipoAtividade ? getAtividade(d.tipoAtividade).nome : '',
-          getCategoria(d.categoria).nome,
+          getCategoriaNome(categorias, d.categoria),
           d.descricao ?? '',
           (d.tags ?? []).join(', '),
           nomeUsuario(d.lancadoPorId),
@@ -118,9 +112,9 @@ export function HistoricoPage() {
             </div>
             <div>
               <Label htmlFor="f-cat">Categoria</Label>
-              <Select id="f-cat" value={categoria} onChange={(e) => setCategoria(e.target.value)}>
+              <Select id="f-cat" value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)}>
                 <option value="">Todas</option>
-                {CATEGORIAS.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                {categorias.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
               </Select>
             </div>
             <div>
@@ -128,13 +122,6 @@ export function HistoricoPage() {
               <Select id="f-safra" value={safraId} onChange={(e) => setSafraId(e.target.value)}>
                 <option value="">Todas</option>
                 {safras.map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="f-atv">Atividade</Label>
-              <Select id="f-atv" value={atividade} onChange={(e) => setAtividade(e.target.value)}>
-                <option value="">Todas</option>
-                {ATIVIDADES.map((a) => <option key={a.id} value={a.id}>{a.nome}</option>)}
               </Select>
             </div>
             <div>
@@ -173,7 +160,6 @@ export function HistoricoPage() {
                     <TableHead>Data</TableHead>
                     <TableHead>Área</TableHead>
                     <TableHead>Categoria</TableHead>
-                    <TableHead>Atividade</TableHead>
                     <TableHead>Descrição / Tags</TableHead>
                     <TableHead>Lançado por</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
@@ -182,23 +168,16 @@ export function HistoricoPage() {
                 </TableHeader>
                 <TableBody>
                   {filtradas.map((d) => {
-                    const cat = getCategoria(d.categoria)
-                    const atv = d.tipoAtividade ? getAtividade(d.tipoAtividade) : null
+                    const catNome = getCategoriaNome(categorias, d.categoria)
+                    const catCor = getCategoriaCor(categorias, d.categoria)
                     return (
                       <TableRow key={d.id}>
                         <TableCell className="whitespace-nowrap">{formatDate(d.data)}</TableCell>
                         <TableCell>{areaNome(d.areaId)}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" style={{ borderColor: cat.cor, color: cat.cor }}>
-                            {cat.nome}
+                          <Badge variant="outline" style={{ borderColor: catCor, color: catCor }}>
+                            {catNome}
                           </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {atv ? (
-                            <span className="text-xs font-medium" style={{ color: atv.cor }}>{atv.nome}</span>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col gap-1">

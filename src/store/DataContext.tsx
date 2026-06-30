@@ -1,11 +1,17 @@
 import * as React from 'react'
-import type { Area, Despesa, Entrada, Insumo, LatLng, MovimentacaoEstoque, Safra } from '@/lib/types'
+import type {
+  Area, Categoria, Despesa, Insumo, LatLng,
+  MovimentacaoEstoque, ProdutoColhido, Safra, TagCadastrada,
+} from '@/lib/types'
 import { gerarId } from '@/lib/storage'
 import { poligonoHectares } from '@/lib/geo'
+import { CATEGORIAS_PADRAO } from '@/lib/categories'
 import {
   db,
-  mapArea, mapDespesa, mapSafra, mapInsumo, mapMovimentacao, mapEntrada,
-  rowArea, rowDespesa, rowSafra, rowInsumo, rowMovimentacao, rowEntrada,
+  mapArea, mapDespesa, mapSafra, mapInsumo, mapMovimentacao,
+  mapCategoria, mapTagCadastrada, mapProdutoColhido,
+  rowArea, rowDespesa, rowSafra, rowInsumo, rowMovimentacao,
+  rowCategoria, rowTagCadastrada, rowProdutoColhido,
 } from '@/lib/supabase'
 
 interface DataContextValue {
@@ -27,22 +33,34 @@ interface DataContextValue {
   safras: Safra[]
   safraAtiva: Safra | null
   adicionarSafra: (dados: Omit<Safra, 'id' | 'criadoEm'>) => Safra
-  ativarSafra: (id: string) => void
+  toggleSafra: (id: string) => void
   removerSafra: (id: string) => void
 
-  // ── Estoque ───────────────────────────────────────────────────
+  // ── Estoque (insumos) ─────────────────────────────────────────
   insumos: Insumo[]
   movimentacoes: MovimentacaoEstoque[]
   adicionarInsumo: (dados: Omit<Insumo, 'id' | 'criadoEm'>) => Insumo
+  atualizarInsumo: (id: string, dados: Partial<Pick<Insumo, 'nome' | 'unidade' | 'estoqueMinimo'>>) => void
   removerInsumo: (id: string) => void
   registrarEntradaEstoque: (insumoId: string, quantidade: number, observacao?: string) => void
+  atualizarMovimentacao: (id: string, dados: { quantidade?: number; observacao?: string }) => void
+  removerMovimentacao: (id: string) => void
   estoqueAtual: (insumoId: string) => number
 
-  // ── Entradas (vendas) ─────────────────────────────────────────
-  entradas: Entrada[]
-  adicionarEntrada: (dados: Omit<Entrada, 'id' | 'criadoEm'>) => Entrada
-  removerEntrada: (id: string) => void
-  totalEntradasPorArea: (areaId: string) => number
+  // ── Produtos colhidos ─────────────────────────────────────────
+  produtosColhidos: ProdutoColhido[]
+  adicionarProdutoColhido: (dados: Omit<ProdutoColhido, 'id' | 'criadoEm'>) => ProdutoColhido
+  removerProdutoColhido: (id: string) => void
+
+  // ── Categorias ────────────────────────────────────────────────
+  categorias: Categoria[]
+  adicionarCategoria: (dados: { nome: string; cor: string }) => Categoria
+  removerCategoria: (id: string) => void
+
+  // ── Tags cadastradas ──────────────────────────────────────────
+  tagsCadastradas: TagCadastrada[]
+  adicionarTagCadastrada: (nome: string) => TagCadastrada
+  removerTagCadastrada: (id: string) => void
 
   // ── Utilitários ───────────────────────────────────────────────
   todosTagsUsados: string[]
@@ -61,7 +79,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [safras, setSafras] = React.useState<Safra[]>([])
   const [insumos, setInsumos] = React.useState<Insumo[]>([])
   const [movimentacoes, setMovimentacoes] = React.useState<MovimentacaoEstoque[]>([])
-  const [entradas, setEntradas] = React.useState<Entrada[]>([])
+  const [produtosColhidos, setProdutosColhidos] = React.useState<ProdutoColhido[]>([])
+  const [categorias, setCategorias] = React.useState<Categoria[]>([])
+  const [tagsCadastradas, setTagsCadastradas] = React.useState<TagCadastrada[]>([])
 
   // ── Carga inicial ─────────────────────────────────────────────
   React.useEffect(() => {
@@ -71,14 +91,30 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       db.from('safras').select('*').order('criado_em'),
       db.from('insumos').select('*').order('nome'),
       db.from('movimentacoes').select('*').order('criado_em'),
-      db.from('entradas').select('*').order('data', { ascending: false }),
-    ]).then(([a, d, s, i, m, e]) => {
+      db.from('produtos_colhidos').select('*').order('data', { ascending: false }),
+      db.from('categorias').select('*').order('nome'),
+      db.from('tags_cadastradas').select('*').order('nome'),
+    ]).then(([a, d, s, i, m, pc, c, tc]) => {
       if (a.data) setAreas(a.data.map(mapArea))
       if (d.data) setDespesas(d.data.map(mapDespesa))
       if (s.data) setSafras(s.data.map(mapSafra))
       if (i.data) setInsumos(i.data.map(mapInsumo))
       if (m.data) setMovimentacoes(m.data.map(mapMovimentacao))
-      if (e.data) setEntradas(e.data.map(mapEntrada))
+      if (pc.data) setProdutosColhidos(pc.data.map(mapProdutoColhido))
+      if (tc.data) setTagsCadastradas(tc.data.map(mapTagCadastrada))
+
+      // Seed categorias padrão na primeira execução
+      if (c.data) {
+        if (c.data.length === 0) {
+          const agora = new Date().toISOString()
+          const seed: Categoria[] = CATEGORIAS_PADRAO.map((cat) => ({ ...cat, criadoEm: agora }))
+          db.from('categorias').insert(seed.map(rowCategoria))
+          setCategorias(seed)
+        } else {
+          setCategorias(c.data.map(mapCategoria))
+        }
+      }
+
       setCarregando(false)
     }).catch((err) => {
       erroDB('carga inicial', err)
@@ -90,13 +126,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const adicionarArea: DataContextValue['adicionarArea'] = (dados) => {
     const area: Area = {
-      id: gerarId(),
-      nome: dados.nome,
-      cor: dados.cor,
-      poligono: dados.poligono,
+      id: gerarId(), nome: dados.nome, cor: dados.cor, poligono: dados.poligono,
       hectares: poligonoHectares(dados.poligono),
-      cultura: dados.cultura,
-      orcamento: dados.orcamento,
+      cultura: dados.cultura, orcamento: dados.orcamento,
       criadoEm: new Date().toISOString(),
     }
     setAreas((prev) => [...prev, area])
@@ -128,7 +160,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const removerArea: DataContextValue['removerArea'] = (id) => {
     setAreas((prev) => prev.filter((a) => a.id !== id))
     setDespesas((prev) => prev.filter((d) => d.areaId !== id))
-    setEntradas((prev) => prev.filter((e) => e.areaId !== id))
+    setProdutosColhidos((prev) => prev.filter((p) => p.areaId !== id))
     db.from('areas').delete().eq('id', id).then(({ error }) => {
       if (error) erroDB('removerArea', error)
     })
@@ -144,22 +176,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const adicionarDespesa: DataContextValue['adicionarDespesa'] = (dados) => {
     const despesa: Despesa = {
-      ...dados,
-      tags: dados.tags ?? [],
-      id: gerarId(),
-      criadoEm: new Date().toISOString(),
+      ...dados, tags: dados.tags ?? [], id: gerarId(), criadoEm: new Date().toISOString(),
     }
     setDespesas((prev) => [...prev, despesa])
 
-    // Débito automático de estoque
     let mov: MovimentacaoEstoque | undefined
     if (dados.insumoId && dados.quantidadeInsumo && dados.quantidadeInsumo > 0) {
       mov = {
-        id: gerarId(),
-        insumoId: dados.insumoId,
-        tipo: 'saida',
-        quantidade: dados.quantidadeInsumo,
-        despesaId: despesa.id,
+        id: gerarId(), insumoId: dados.insumoId, tipo: 'saida',
+        quantidade: dados.quantidadeInsumo, despesaId: despesa.id,
         criadoEm: new Date().toISOString(),
       }
       setMovimentacoes((prev) => [...prev, mov!])
@@ -192,31 +217,27 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const adicionarSafra: DataContextValue['adicionarSafra'] = (dados) => {
     const safra: Safra = { ...dados, id: gerarId(), criadoEm: new Date().toISOString() }
-    setSafras((prev) => {
-      const base = dados.ativa ? prev.map((s) => ({ ...s, ativa: false })) : prev
-      return [...base, safra]
-    })
-    const ops = dados.ativa
-      ? [
-          db.from('safras').update({ ativa: false }).neq('id', safra.id),
-          db.from('safras').insert(rowSafra(safra)),
-        ]
-      : [db.from('safras').insert(rowSafra(safra))]
-    Promise.all(ops).then((results) => {
-      results.forEach((r) => { if (r.error) erroDB('adicionarSafra', r.error) })
+    setSafras((prev) => [...prev, safra])
+    db.from('safras').insert(rowSafra(safra)).then(({ error }) => {
+      if (error) erroDB('adicionarSafra', error)
     })
     return safra
   }
 
-  const ativarSafra: DataContextValue['ativarSafra'] = (id) => {
-    setSafras((prev) => prev.map((s) => ({ ...s, ativa: s.id === id })))
-    Promise.all([
-      db.from('safras').update({ ativa: false }).neq('id', id),
-      db.from('safras').update({ ativa: true }).eq('id', id),
-    ]).then(([r1, r2]) => {
-      if (r1.error) erroDB('ativarSafra/desativar', r1.error)
-      if (r2.error) erroDB('ativarSafra/ativar', r2.error)
-    })
+  const toggleSafra: DataContextValue['toggleSafra'] = (id) => {
+    let novoAtiva: boolean | undefined
+    setSafras((prev) =>
+      prev.map((s) => {
+        if (s.id !== id) return s
+        novoAtiva = !s.ativa
+        return { ...s, ativa: novoAtiva }
+      })
+    )
+    if (novoAtiva !== undefined) {
+      db.from('safras').update({ ativa: novoAtiva }).eq('id', id).then(({ error }) => {
+        if (error) erroDB('toggleSafra', error)
+      })
+    }
   }
 
   const removerSafra: DataContextValue['removerSafra'] = (id) => {
@@ -226,7 +247,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     })
   }
 
-  // ── Estoque ───────────────────────────────────────────────────
+  // ── Estoque (insumos) ─────────────────────────────────────────
 
   const adicionarInsumo: DataContextValue['adicionarInsumo'] = (dados) => {
     const insumo: Insumo = { ...dados, id: gerarId(), criadoEm: new Date().toISOString() }
@@ -235,6 +256,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (error) erroDB('adicionarInsumo', error)
     })
     return insumo
+  }
+
+  const atualizarInsumo: DataContextValue['atualizarInsumo'] = (id, dados) => {
+    setInsumos((prev) => prev.map((i) => (i.id !== id ? i : { ...i, ...dados })))
+    db.from('insumos').update({
+      ...(dados.nome !== undefined ? { nome: dados.nome } : {}),
+      ...(dados.unidade !== undefined ? { unidade: dados.unidade } : {}),
+      ...(dados.estoqueMinimo !== undefined ? { estoque_minimo: dados.estoqueMinimo ?? null } : {}),
+    }).eq('id', id).then(({ error }) => {
+      if (error) erroDB('atualizarInsumo', error)
+    })
   }
 
   const removerInsumo: DataContextValue['removerInsumo'] = (id) => {
@@ -249,16 +281,31 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     insumoId, quantidade, observacao
   ) => {
     const mov: MovimentacaoEstoque = {
-      id: gerarId(),
-      insumoId,
-      tipo: 'entrada',
-      quantidade,
-      observacao,
-      criadoEm: new Date().toISOString(),
+      id: gerarId(), insumoId, tipo: 'entrada', quantidade,
+      observacao, criadoEm: new Date().toISOString(),
     }
     setMovimentacoes((prev) => [...prev, mov])
     db.from('movimentacoes').insert(rowMovimentacao(mov)).then(({ error }) => {
       if (error) erroDB('registrarEntradaEstoque', error)
+    })
+  }
+
+  const atualizarMovimentacao: DataContextValue['atualizarMovimentacao'] = (id, dados) => {
+    setMovimentacoes((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, ...dados } : m))
+    )
+    db.from('movimentacoes').update({
+      ...(dados.quantidade !== undefined ? { quantidade: dados.quantidade } : {}),
+      ...(dados.observacao !== undefined ? { observacao: dados.observacao } : {}),
+    }).eq('id', id).then(({ error }) => {
+      if (error) erroDB('atualizarMovimentacao', error)
+    })
+  }
+
+  const removerMovimentacao: DataContextValue['removerMovimentacao'] = (id) => {
+    setMovimentacoes((prev) => prev.filter((m) => m.id !== id))
+    db.from('movimentacoes').delete().eq('id', id).then(({ error }) => {
+      if (error) erroDB('removerMovimentacao', error)
     })
   }
 
@@ -270,37 +317,68 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [movimentacoes]
   )
 
-  // ── Entradas (vendas) ─────────────────────────────────────────
+  // ── Produtos colhidos ─────────────────────────────────────────
 
-  const adicionarEntrada: DataContextValue['adicionarEntrada'] = (dados) => {
-    const entrada: Entrada = { ...dados, id: gerarId(), criadoEm: new Date().toISOString() }
-    setEntradas((prev) => [...prev, entrada])
-    db.from('entradas').insert(rowEntrada(entrada)).then(({ error }) => {
-      if (error) erroDB('adicionarEntrada', error)
+  const adicionarProdutoColhido: DataContextValue['adicionarProdutoColhido'] = (dados) => {
+    const prod: ProdutoColhido = { ...dados, id: gerarId(), criadoEm: new Date().toISOString() }
+    setProdutosColhidos((prev) => [prod, ...prev])
+    db.from('produtos_colhidos').insert(rowProdutoColhido(prod)).then(({ error }) => {
+      if (error) erroDB('adicionarProdutoColhido', error)
     })
-    return entrada
+    return prod
   }
 
-  const removerEntrada: DataContextValue['removerEntrada'] = (id) => {
-    setEntradas((prev) => prev.filter((e) => e.id !== id))
-    db.from('entradas').delete().eq('id', id).then(({ error }) => {
-      if (error) erroDB('removerEntrada', error)
+  const removerProdutoColhido: DataContextValue['removerProdutoColhido'] = (id) => {
+    setProdutosColhidos((prev) => prev.filter((p) => p.id !== id))
+    db.from('produtos_colhidos').delete().eq('id', id).then(({ error }) => {
+      if (error) erroDB('removerProdutoColhido', error)
     })
   }
 
-  const totalEntradasPorArea = React.useCallback(
-    (areaId: string) =>
-      entradas.filter((e) => e.areaId === areaId).reduce((s, e) => s + e.total, 0),
-    [entradas]
-  )
+  // ── Categorias ────────────────────────────────────────────────
+
+  const adicionarCategoria: DataContextValue['adicionarCategoria'] = (dados) => {
+    const cat: Categoria = { ...dados, id: gerarId(), criadoEm: new Date().toISOString() }
+    setCategorias((prev) => [...prev, cat])
+    db.from('categorias').insert(rowCategoria(cat)).then(({ error }) => {
+      if (error) erroDB('adicionarCategoria', error)
+    })
+    return cat
+  }
+
+  const removerCategoria: DataContextValue['removerCategoria'] = (id) => {
+    setCategorias((prev) => prev.filter((c) => c.id !== id))
+    db.from('categorias').delete().eq('id', id).then(({ error }) => {
+      if (error) erroDB('removerCategoria', error)
+    })
+  }
+
+  // ── Tags cadastradas ──────────────────────────────────────────
+
+  const adicionarTagCadastrada: DataContextValue['adicionarTagCadastrada'] = (nome) => {
+    const tag: TagCadastrada = { id: gerarId(), nome: nome.trim(), criadoEm: new Date().toISOString() }
+    setTagsCadastradas((prev) => [...prev, tag])
+    db.from('tags_cadastradas').insert(rowTagCadastrada(tag)).then(({ error }) => {
+      if (error) erroDB('adicionarTagCadastrada', error)
+    })
+    return tag
+  }
+
+  const removerTagCadastrada: DataContextValue['removerTagCadastrada'] = (id) => {
+    setTagsCadastradas((prev) => prev.filter((t) => t.id !== id))
+    db.from('tags_cadastradas').delete().eq('id', id).then(({ error }) => {
+      if (error) erroDB('removerTagCadastrada', error)
+    })
+  }
 
   // ── Utilitários ───────────────────────────────────────────────
 
   const todosTagsUsados = React.useMemo(() => {
     const set = new Set<string>()
+    tagsCadastradas.forEach((t) => set.add(t.nome))
     despesas.forEach((d) => d.tags?.forEach((t) => set.add(t)))
     return Array.from(set).sort()
-  }, [despesas])
+  }, [tagsCadastradas, despesas])
 
   return (
     <DataContext.Provider
@@ -308,10 +386,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         carregando,
         areas, adicionarArea, atualizarArea, removerArea, totalPorArea,
         despesas, adicionarDespesa, removerDespesa,
-        safras, safraAtiva, adicionarSafra, ativarSafra, removerSafra,
-        insumos, movimentacoes, adicionarInsumo, removerInsumo,
-        registrarEntradaEstoque, estoqueAtual,
-        entradas, adicionarEntrada, removerEntrada, totalEntradasPorArea,
+        safras, safraAtiva, adicionarSafra, toggleSafra, removerSafra,
+        insumos, movimentacoes, adicionarInsumo, atualizarInsumo, removerInsumo,
+        registrarEntradaEstoque, atualizarMovimentacao, removerMovimentacao, estoqueAtual,
+        produtosColhidos, adicionarProdutoColhido, removerProdutoColhido,
+        categorias, adicionarCategoria, removerCategoria,
+        tagsCadastradas, adicionarTagCadastrada, removerTagCadastrada,
         todosTagsUsados,
       }}
     >

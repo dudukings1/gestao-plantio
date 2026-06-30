@@ -16,29 +16,21 @@ const definePermissoes = <T extends Record<string, boolean>>(p: T) => p
 
 export const PERMISSOES = {
   admin: definePermissoes({
-    // Mapa
     verMapa: true,
     criarArea: true,
     excluirArea: true,
-    // Despesas
     lancarDespesa: true,
     excluirDespesaPropria: true,
     excluirDespesaQualquer: true,
-    // Histórico / Dashboard
     verHistorico: true,
     verDashboard: true,
     exportarPDF: true,
     exportarCSV: true,
-    // Usuários
     gerenciarUsuarios: true,
-    // Safras
     gerenciarSafras: true,
-    // Estoque
     verEstoque: true,
     gerenciarEstoque: true,
-    // Entradas (vendas)
-    verEntradas: true,
-    gerenciarEntradas: true,
+    gerenciarCategorias: true,
   }),
   funcionario: definePermissoes({
     verMapa: false,
@@ -55,8 +47,7 @@ export const PERMISSOES = {
     gerenciarSafras: false,
     verEstoque: true,
     gerenciarEstoque: false,
-    verEntradas: false,
-    gerenciarEntradas: false,
+    gerenciarCategorias: false,
   }),
 } satisfies Record<Role, Record<string, boolean>>
 
