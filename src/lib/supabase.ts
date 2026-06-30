@@ -66,7 +66,9 @@ export const mapTagCadastrada = (r: Row): TagCadastrada => ({
 export const mapProdutoColhido = (r: Row): ProdutoColhido => ({
   id: r.id, areaId: r.area_id,
   safraId: r.safra_id ?? undefined,
-  cultura: r.cultura, quantidade: Number(r.quantidade),
+  cultura: r.cultura,
+  tipo: (r.tipo as 'entrada' | 'saida' | undefined) ?? 'entrada',
+  quantidade: Number(r.quantidade),
   unidade: r.unidade, data: r.data,
   observacao: r.observacao ?? undefined,
   criadoEm: r.criado_em,
@@ -118,7 +120,7 @@ export const rowTagCadastrada = (t: TagCadastrada) => ({
 
 export const rowProdutoColhido = (p: ProdutoColhido) => ({
   id: p.id, area_id: p.areaId, safra_id: p.safraId ?? null,
-  cultura: p.cultura, quantidade: p.quantidade, unidade: p.unidade,
+  cultura: p.cultura, tipo: p.tipo, quantidade: p.quantidade, unidade: p.unidade,
   data: p.data, observacao: p.observacao ?? null, criado_em: p.criadoEm,
 })
 

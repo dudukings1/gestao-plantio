@@ -144,6 +144,7 @@ create table if not exists produtos_colhidos (
   area_id     text        not null references areas(id) on delete cascade,
   safra_id    text        references safras(id) on delete set null,
   cultura     text        not null,
+  tipo        text        not null default 'entrada',
   quantidade  numeric     not null,
   unidade     text        not null,
   data        date        not null,
@@ -153,6 +154,9 @@ create table if not exists produtos_colhidos (
 alter table produtos_colhidos enable row level security;
 drop policy if exists "anon_all" on produtos_colhidos;
 create policy "anon_all" on produtos_colhidos for all to anon using (true) with check (true);
+
+-- Migração 2026-06-30: tabela já existia em produção sem a coluna "tipo" (entrada/saída)
+alter table produtos_colhidos add column if not exists tipo text not null default 'entrada';
 
 -- ── Remover coluna tipo_atividade de despesas (se existir) ─────
 -- alter table despesas drop column if exists tipo_atividade;

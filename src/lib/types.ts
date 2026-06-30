@@ -23,6 +23,7 @@ export interface ProdutoColhido {
   areaId: string
   safraId?: string
   cultura: string
+  tipo: 'entrada' | 'saida'
   quantidade: number
   unidade: string
   data: string

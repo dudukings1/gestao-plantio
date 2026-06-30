@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { useData } from '@/store/DataContext'
 
 const CORES_PADRAO = [
@@ -18,6 +19,7 @@ export function CategoriasTagsPage() {
     tagsCadastradas, adicionarTagCadastrada, removerTagCadastrada,
     despesas,
   } = useData()
+  const confirm = useConfirm()
 
   // Form nova categoria
   const [nomeCat, setNomeCat] = React.useState('')
@@ -156,8 +158,10 @@ export function CategoriasTagsPage() {
                     variant="ghost"
                     disabled={usos > 0}
                     title={usos > 0 ? 'Categoria em uso — não pode ser excluída' : 'Excluir'}
-                    onClick={() => {
-                      if (confirm(`Excluir categoria "${c.nome}"?`)) removerCategoria(c.id)
+                    onClick={async () => {
+                      if (await confirm({ description: `Excluir categoria "${c.nome}"?`, variant: 'destructive' })) {
+                        removerCategoria(c.id)
+                      }
                     }}
                   >
                     <Trash2 className="size-4 text-destructive" />
@@ -220,8 +224,10 @@ export function CategoriasTagsPage() {
                     <span className="text-xs text-muted-foreground ml-0.5">({usos})</span>
                   )}
                   <button
-                    onClick={() => {
-                      if (confirm(`Excluir tag "${t.nome}"?`)) removerTagCadastrada(t.id)
+                    onClick={async () => {
+                      if (await confirm({ description: `Excluir tag "${t.nome}"?`, variant: 'destructive' })) {
+                        removerTagCadastrada(t.id)
+                      }
                     }}
                     className="ml-0.5 flex size-5 items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                     title="Excluir tag"

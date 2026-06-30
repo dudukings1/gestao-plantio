@@ -4,12 +4,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { useData } from '@/store/DataContext'
 import { useAuth } from '@/store/AuthContext'
 import { cn, formatDate } from '@/lib/utils'
 
 export function SafrasPage() {
   const { safras, adicionarSafra, toggleSafra, removerSafra } = useData()
+  const confirm = useConfirm()
   const { usuario } = useAuth()
 
   const [mostrarForm, setMostrarForm] = React.useState(false)
@@ -146,8 +148,10 @@ export function SafrasPage() {
                     <Button
                       size="icon"
                       variant="ghost"
-                      onClick={() => {
-                        if (confirm(`Excluir a safra "${s.nome}"?`)) removerSafra(s.id)
+                      onClick={async () => {
+                        if (await confirm({ description: `Excluir a safra "${s.nome}"?`, variant: 'destructive' })) {
+                          removerSafra(s.id)
+                        }
                       }}
                     >
                       <Trash2 className="size-4 text-destructive" />

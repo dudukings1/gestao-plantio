@@ -13,6 +13,8 @@ import {
   rowArea, rowDespesa, rowSafra, rowInsumo, rowMovimentacao,
   rowCategoria, rowTagCadastrada, rowProdutoColhido,
 } from '@/lib/supabase'
+import { toast } from '@/components/ui/toast'
+import { formatCurrency } from '@/lib/utils'
 
 interface DataContextValue {
   carregando: boolean
@@ -69,10 +71,6 @@ interface DataContextValue {
 
 const DataContext = React.createContext<DataContextValue | null>(null)
 
-function erroDB(operacao: string, error: unknown) {
-  console.error(`[Supabase] Erro em "${operacao}":`, error)
-}
-
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [carregando, setCarregando] = React.useState(true)
   const [areas, setAreas] = React.useState<Area[]>([])
@@ -118,7 +116,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (err) {
-      erroDB('carga de dados', err)
+      console.error('[Supabase] Erro em "carga de dados":', err)
+      toast({
+        title: 'Falha ao carregar dados',
+        description: 'Verifique sua conexão e tente novamente pelo botão Atualizar.',
+        variant: 'destructive',
+      })
     } finally {
       setCarregando(false)
     }
@@ -126,6 +129,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     recarregar()
+  }, [recarregar])
+
+  // Se uma operação falhar, avisa o usuário e ressincroniza com o servidor
+  // (desfaz qualquer drift do optimistic update). Debounced pra não disparar
+  // várias recargas quando múltiplas operações falham juntas.
+  const resyncTimeoutRef = React.useRef<number | null>(null)
+  const erroDB = React.useCallback((operacao: string, error: unknown) => {
+    console.error(`[Supabase] Erro em "${operacao}":`, error)
+    toast({
+      title: 'Falha ao salvar',
+      description: 'Não foi possível sincronizar com o servidor. Os dados serão recarregados.',
+      variant: 'destructive',
+    })
+    if (resyncTimeoutRef.current) window.clearTimeout(resyncTimeoutRef.current)
+    resyncTimeoutRef.current = window.setTimeout(() => {
+      recarregar()
+    }, 400)
   }, [recarregar])
 
   // ── Áreas ─────────────────────────────────────────────────────
@@ -185,6 +205,22 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       ...dados, tags: dados.tags ?? [], id: gerarId(), criadoEm: new Date().toISOString(),
     }
     setDespesas((prev) => [...prev, despesa])
+
+    // Avisa quando a despesa faz a área ultrapassar o orçamento definido
+    const area = areas.find((a) => a.id === dados.areaId)
+    if (area?.orcamento) {
+      const totalAntes = despesas
+        .filter((d) => d.areaId === area.id)
+        .reduce((s, d) => s + d.valor, 0)
+      const totalDepois = totalAntes + despesa.valor
+      if (totalAntes < area.orcamento && totalDepois >= area.orcamento) {
+        toast({
+          title: 'Orçamento ultrapassado',
+          description: `"${area.nome}" passou de ${formatCurrency(area.orcamento)} em despesas.`,
+          variant: 'destructive',
+        })
+      }
+    }
 
     let mov: MovimentacaoEstoque | undefined
     if (dados.insumoId && dados.quantidadeInsumo && dados.quantidadeInsumo > 0) {

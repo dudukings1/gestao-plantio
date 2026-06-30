@@ -18,9 +18,23 @@ interface PlantioMapProps {
   onPolygonComplete?: (path: LatLng[]) => void
   selectedAreaId?: string | null
   onSelectArea?: (id: string) => void
+  /** ID da área cujo polígono está em edição (arrastar vértices). */
+  editingAreaId?: string | null
+  /** Chamado a cada ajuste de vértice enquanto a área está em edição. */
+  onPolygonEdit?: (areaId: string, path: LatLng[]) => void
   /** Retorna o total gasto em uma área — usado para exibir o rótulo no polígono. */
   getTotal?: (areaId: string) => number
+  /** Sobrescreve a cor do polígono por área (ex.: mapa de calor de custo/ha). */
+  heatColors?: Record<string, string>
   className?: string
+}
+
+function extrairPath(layer: L.Polygon): LatLng[] {
+  const ring = layer.getLatLngs()[0]
+  return (Array.isArray(ring) ? ring : [ring]).map((ll) => {
+    const latLng = ll as L.LatLng
+    return { lat: latLng.lat, lng: latLng.lng }
+  })
 }
 
 // Reenquadra o mapa sempre que novas áreas são adicionadas.
@@ -69,11 +83,7 @@ function DrawingControl({
 
     function handleCreate(e: { layer: L.Layer }) {
       const polygon = e.layer as L.Polygon
-      const ring = polygon.getLatLngs()[0]
-      const path = (Array.isArray(ring) ? ring : [ring]).map((ll) => {
-        const latLng = ll as L.LatLng
-        return { lat: latLng.lat, lng: latLng.lng }
-      })
+      const path = extrairPath(polygon)
       map.removeLayer(polygon)
       onPolygonComplete(path)
     }
@@ -95,7 +105,10 @@ export function PlantioMap({
   onPolygonComplete,
   selectedAreaId,
   onSelectArea,
+  editingAreaId,
+  onPolygonEdit,
   getTotal,
+  heatColors,
   className,
 }: PlantioMapProps) {
   const mapRef = React.useRef<L.Map | null>(null)
@@ -134,16 +147,32 @@ export function PlantioMap({
 
         {areas.map((area) => {
           const total = getTotal?.(area.id) ?? 0
+          const editando = editingAreaId === area.id
+          const cor = heatColors?.[area.id] ?? area.cor
           return (
             <Polygon
               key={area.id}
+              ref={(layer) => {
+                if (!layer) return
+                if (editando && !layer.pm.enabled()) {
+                  layer.pm.enable({ allowSelfIntersection: false })
+                } else if (!editando && layer.pm.enabled()) {
+                  layer.pm.disable()
+                }
+              }}
               positions={area.poligono.map((p) => [p.lat, p.lng] as [number, number])}
-              eventHandlers={{ click: () => onSelectArea?.(area.id) }}
+              eventHandlers={{
+                click: () => onSelectArea?.(area.id),
+                'pm:edit': (e) => {
+                  onPolygonEdit?.(area.id, extrairPath(e.target as L.Polygon))
+                },
+              }}
               pathOptions={{
-                color: area.cor,
-                fillColor: area.cor,
-                fillOpacity: selectedAreaId === area.id ? 0.5 : 0.3,
-                weight: selectedAreaId === area.id ? 4 : 2,
+                color: cor,
+                fillColor: cor,
+                fillOpacity: selectedAreaId === area.id ? 0.5 : 0.4,
+                weight: editando ? 3 : selectedAreaId === area.id ? 4 : 2,
+                dashArray: editando ? '6,4' : undefined,
               }}
             >
               <Tooltip

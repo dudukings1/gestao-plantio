@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Download, RefreshCw, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Download, RefreshCw, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -15,6 +15,8 @@ import { useAuth } from '@/store/AuthContext'
 import { getCategoriaNome, getCategoriaCor } from '@/lib/categories'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
+const ITENS_POR_PAGINA = 50
+
 export function HistoricoPage() {
   const { areas, despesas, safras, categorias, removerDespesa, todosTagsUsados, recarregar } = useData()
   const { usuario, usuarios, pode } = useAuth()
@@ -26,6 +28,7 @@ export function HistoricoPage() {
   const [de, setDe] = React.useState('')
   const [ate, setAte] = React.useState('')
   const [atualizando, setAtualizando] = React.useState(false)
+  const [pagina, setPagina] = React.useState(1)
 
   const despesasVisiveis = React.useMemo(
     () =>
@@ -68,6 +71,17 @@ export function HistoricoPage() {
   }, [despesasVisiveis, areaId, categoriaId, safraId, tagsFiltro, de, ate])
 
   const total = filtradas.reduce((s, d) => s + d.valor, 0)
+
+  React.useEffect(() => {
+    setPagina(1)
+  }, [areaId, categoriaId, safraId, tagsFiltro, de, ate])
+
+  const totalPaginas = Math.max(1, Math.ceil(filtradas.length / ITENS_POR_PAGINA))
+  const paginaAtual = Math.min(pagina, totalPaginas)
+  const visiveis = filtradas.slice(
+    (paginaAtual - 1) * ITENS_POR_PAGINA,
+    paginaAtual * ITENS_POR_PAGINA
+  )
 
   function podeExcluir(lancadoPorId?: string) {
     if (pode('excluirDespesaQualquer')) return true
@@ -187,7 +201,7 @@ export function HistoricoPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtradas.map((d) => {
+                  {visiveis.map((d) => {
                     const catNome = getCategoriaNome(categorias, d.categoria)
                     const catCor = getCategoriaCor(categorias, d.categoria)
                     return (
@@ -234,11 +248,35 @@ export function HistoricoPage() {
         </CardContent>
       </Card>
 
-      <div className="flex items-center justify-end gap-3 pr-1">
-        <span className="text-sm text-muted-foreground">
-          {filtradas.length} lançamento(s) · Total
-        </span>
-        <span className="text-lg font-semibold">{formatCurrency(total)}</span>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {totalPaginas > 1 ? (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline" size="sm"
+              disabled={paginaAtual <= 1}
+              onClick={() => setPagina((p) => p - 1)}
+            >
+              <ChevronLeft /> Anterior
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Página {paginaAtual} de {totalPaginas}
+            </span>
+            <Button
+              variant="outline" size="sm"
+              disabled={paginaAtual >= totalPaginas}
+              onClick={() => setPagina((p) => p + 1)}
+            >
+              Próxima <ChevronRight />
+            </Button>
+          </div>
+        ) : <div />}
+
+        <div className="flex items-center gap-3 pr-1">
+          <span className="text-sm text-muted-foreground">
+            {filtradas.length} lançamento(s) · Total
+          </span>
+          <span className="text-lg font-semibold">{formatCurrency(total)}</span>
+        </div>
       </div>
     </div>
   )

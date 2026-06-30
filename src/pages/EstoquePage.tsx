@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { useData } from '@/store/DataContext'
 import { useAuth } from '@/store/AuthContext'
 import { cn, formatDate } from '@/lib/utils'
@@ -23,6 +24,7 @@ export function EstoquePage() {
     estoqueAtual,
   } = useData()
   const { pode } = useAuth()
+  const confirm = useConfirm()
 
   const podeGerenciar = pode('gerenciarEstoque')
 
@@ -59,6 +61,7 @@ export function EstoquePage() {
   const [pAreaId, setPAreaId] = React.useState(() => areas[0]?.id ?? '')
   const [pSafraId, setPSafraId] = React.useState('')
   const [pCultura, setPCultura] = React.useState('')
+  const [pTipo, setPTipo] = React.useState<'entrada' | 'saida'>('entrada')
   const [pQtd, setPQtd] = React.useState('')
   const [pUnidade, setPUnidade] = React.useState('sc')
   const [pData, setPData] = React.useState(() => new Date().toISOString().slice(0, 10))
@@ -122,14 +125,24 @@ export function EstoquePage() {
       areaId: pAreaId,
       safraId: pSafraId || undefined,
       cultura: pCultura.trim(),
+      tipo: pTipo,
       quantidade: Number(pQtd),
       unidade: pUnidade,
       data: pData,
       observacao: pObs.trim() || undefined,
     })
-    setPCultura(''); setPQtd(''); setPObs('')
+    setPCultura(''); setPQtd(''); setPObs(''); setPTipo('entrada')
     setMostrarFormProduto(false)
   }
+
+  const saldoPorCultura = React.useMemo(() => {
+    const mapa = new Map<string, number>()
+    for (const p of produtosColhidos) {
+      const delta = p.tipo === 'saida' ? -p.quantidade : p.quantidade
+      mapa.set(p.cultura, (mapa.get(p.cultura) ?? 0) + delta)
+    }
+    return Array.from(mapa.entries()).map(([cultura, saldo]) => ({ cultura, saldo }))
+  }, [produtosColhidos])
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -154,9 +167,9 @@ export function EstoquePage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => {
+                    onClick={async () => {
                       const ins = insumos.find((i) => i.id === insumoSelecionadoId)
-                      if (ins && confirm(`Excluir "${ins.nome}" e todo o histórico?`)) {
+                      if (ins && await confirm({ description: `Excluir "${ins.nome}" e todo o histórico?`, variant: 'destructive' })) {
                         removerInsumo(insumoSelecionadoId)
                         setInsumoSelecionadoId(null)
                         setExpandidoId(null)
@@ -174,7 +187,7 @@ export function EstoquePage() {
           )}
           {aba === 'produtos' && podeGerenciar && (
             <Button onClick={() => setMostrarFormProduto((v) => !v)} variant={mostrarFormProduto ? 'outline' : 'default'}>
-              <Plus className="mr-1 size-4" /> Registrar colheita
+              <Plus className="mr-1 size-4" /> Registrar movimento
             </Button>
           )}
         </div>
@@ -429,8 +442,10 @@ export function EstoquePage() {
                                           <Pencil className="size-3" />
                                         </button>
                                         <button
-                                          onClick={() => {
-                                            if (confirm('Excluir esta movimentação?')) removerMovimentacao(m.id)
+                                          onClick={async () => {
+                                            if (await confirm({ description: 'Excluir esta movimentação?', variant: 'destructive' })) {
+                                              removerMovimentacao(m.id)
+                                            }
                                           }}
                                           className="text-destructive/60 hover:text-destructive"
                                           title="Excluir"
@@ -460,7 +475,7 @@ export function EstoquePage() {
         <>
           {mostrarFormProduto && (
             <Card>
-              <CardHeader><CardTitle className="text-base">Registrar colheita</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-base">Registrar movimento</CardTitle></CardHeader>
               <CardContent>
                 <form onSubmit={handleCriarProduto} className="grid grid-cols-2 gap-4">
                   <div>
@@ -481,7 +496,14 @@ export function EstoquePage() {
                     <Input id="p-cultura" value={pCultura} onChange={(e) => setPCultura(e.target.value)} placeholder="Ex.: Soja" required autoFocus />
                   </div>
                   <div>
-                    <Label htmlFor="p-data">Data da colheita</Label>
+                    <Label htmlFor="p-tipo">Tipo</Label>
+                    <Select id="p-tipo" value={pTipo} onChange={(e) => setPTipo(e.target.value as 'entrada' | 'saida')}>
+                      <option value="entrada">Entrada (colheita)</option>
+                      <option value="saida">Saída (venda/consumo)</option>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="p-data">Data{pTipo === 'entrada' ? ' da colheita' : ' da saída'}</Label>
                     <Input id="p-data" type="date" value={pData} onChange={(e) => setPData(e.target.value)} required />
                   </div>
                   <div>
@@ -507,12 +529,28 @@ export function EstoquePage() {
             </Card>
           )}
 
+          {saldoPorCultura.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle className="text-base">Saldo por cultura</CardTitle></CardHeader>
+              <CardContent className="flex flex-wrap gap-3">
+                {saldoPorCultura.map(({ cultura, saldo }) => (
+                  <div key={cultura} className="rounded-md border px-3 py-2">
+                    <p className="text-xs text-muted-foreground">{cultura}</p>
+                    <p className={cn('font-semibold tabular-nums', saldo < 0 && 'text-destructive')}>
+                      {saldo.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
           {produtosColhidos.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center gap-2 py-12 text-center text-muted-foreground">
                 <Leaf className="size-10 opacity-30" />
                 <p className="text-sm">Nenhum produto colhido registrado.</p>
-                {podeGerenciar && <p className="text-sm">Clique em <strong>Registrar colheita</strong> para começar.</p>}
+                {podeGerenciar && <p className="text-sm">Clique em <strong>Registrar movimento</strong> para começar.</p>}
               </CardContent>
             </Card>
           ) : (
@@ -525,9 +563,14 @@ export function EstoquePage() {
                     <CardContent className="flex items-center justify-between gap-4 py-3">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
+                          {p.tipo === 'entrada' ? (
+                            <TrendingUp className="size-3.5 shrink-0 text-green-500" />
+                          ) : (
+                            <TrendingDown className="size-3.5 shrink-0 text-destructive" />
+                          )}
                           <span className="font-semibold">{p.cultura}</span>
-                          <span className="text-sm text-muted-foreground">
-                            {p.quantidade.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} {p.unidade}
+                          <span className={cn('text-sm tabular-nums', p.tipo === 'entrada' ? 'text-green-600' : 'text-destructive')}>
+                            {p.tipo === 'entrada' ? '+' : '−'}{p.quantidade.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} {p.unidade}
                           </span>
                           {area && (
                             <span
@@ -550,8 +593,10 @@ export function EstoquePage() {
                       {podeGerenciar && (
                         <Button
                           size="icon" variant="ghost"
-                          onClick={() => {
-                            if (confirm(`Excluir colheita de ${p.cultura}?`)) removerProdutoColhido(p.id)
+                          onClick={async () => {
+                            if (await confirm({ description: `Excluir colheita de ${p.cultura}?`, variant: 'destructive' })) {
+                              removerProdutoColhido(p.id)
+                            }
                           }}
                         >
                           <Trash2 className="size-4 text-destructive" />
