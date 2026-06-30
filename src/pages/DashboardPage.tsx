@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { useData } from '@/store/DataContext'
-import { getCategoriaCor, getCategoriaNome } from '@/lib/categories'
+import { getCategoriaCor } from '@/lib/categories'
 import { formatCurrency, cn } from '@/lib/utils'
 import { gerarRelatorioPDF } from '@/lib/relatorio'
 

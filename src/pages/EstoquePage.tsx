@@ -10,7 +10,7 @@ import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useData } from '@/store/DataContext'
 import { useAuth } from '@/store/AuthContext'
-import { cn, formatDate, formatCurrency } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
 
 type Aba = 'insumos' | 'produtos'
 
